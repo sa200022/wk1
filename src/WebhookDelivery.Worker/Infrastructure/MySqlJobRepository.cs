@@ -1,0 +1,169 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Dapper;
+using MySqlConnector;
+using WebhookDelivery.Core.Models;
+using WebhookDelivery.Core.Repositories;
+
+namespace WebhookDelivery.Worker.Infrastructure;
+
+public sealed class MySqlJobRepository : IJobRepository
+{
+    private readonly string _connectionString;
+
+    public MySqlJobRepository(string connectionString)
+    {
+        _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
+    }
+
+    public async Task<WebhookDeliveryJob> CreateAsync(
+        WebhookDeliveryJob job,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = @"
+            INSERT INTO webhook_delivery_jobs
+                (saga_id, status, attempt_at, lease_until)
+            VALUES
+                (@SagaId, @Status, @AttemptAt, @LeaseUntil);
+            SELECT LAST_INSERT_ID();
+        ";
+
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var id = await connection.ExecuteScalarAsync<long>(
+            new CommandDefinition(
+                sql,
+                new
+                {
+                    job.SagaId,
+                    Status = job.Status.ToString(),
+                    job.AttemptAt,
+                    job.LeaseUntil
+                },
+                cancellationToken: cancellationToken
+            )
+        );
+
+        return job with { Id = id };
+    }
+
+    public async Task<WebhookDeliveryJob?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
+    {
+        const string sql = @"
+            SELECT id, saga_id, status, lease_until, attempt_at,
+                   response_status, error_code
+            FROM webhook_delivery_jobs
+            WHERE id = @Id
+        ";
+
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        return await connection.QuerySingleOrDefaultAsync<WebhookDeliveryJob>(
+            new CommandDefinition(sql, new { Id = id }, cancellationToken: cancellationToken)
+        );
+    }
+
+    public async Task<IReadOnlyList<WebhookDeliveryJob>> GetActiveBySagaIdAsync(
+        long sagaId,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = @"
+            SELECT id, saga_id, status, lease_until, attempt_at,
+                   response_status, error_code
+            FROM webhook_delivery_jobs
+            WHERE saga_id = @SagaId
+              AND status IN ('Pending', 'Leased')
+        ";
+
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var results = await connection.QueryAsync<WebhookDeliveryJob>(
+            new CommandDefinition(sql, new { SagaId = sagaId }, cancellationToken: cancellationToken)
+        );
+
+        return results.ToList();
+    }
+
+    public async Task<IReadOnlyList<WebhookDeliveryJob>> GetTerminalBySagaIdAsync(
+        long sagaId,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = @"
+            SELECT id, saga_id, status, lease_until, attempt_at,
+                   response_status, error_code
+            FROM webhook_delivery_jobs
+            WHERE saga_id = @SagaId
+              AND status IN ('Completed', 'Failed')
+            ORDER BY attempt_at DESC
+        ";
+
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var results = await connection.QueryAsync<WebhookDeliveryJob>(
+            new CommandDefinition(sql, new { SagaId = sagaId }, cancellationToken: cancellationToken)
+        );
+
+        return results.ToList();
+    }
+
+    public async Task UpdateAsync(WebhookDeliveryJob job, CancellationToken cancellationToken = default)
+    {
+        const string sql = @"
+            UPDATE webhook_delivery_jobs
+            SET status = @Status,
+                lease_until = @LeaseUntil,
+                response_status = @ResponseStatus,
+                error_code = @ErrorCode
+            WHERE id = @Id
+        ";
+
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        await connection.ExecuteAsync(
+            new CommandDefinition(
+                sql,
+                new
+                {
+                    job.Id,
+                    Status = job.Status.ToString(),
+                    job.LeaseUntil,
+                    job.ResponseStatus,
+                    job.ErrorCode
+                },
+                cancellationToken: cancellationToken
+            )
+        );
+    }
+
+    public async Task<IReadOnlyList<WebhookDeliveryJob>> GetPendingJobsAsync(
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = @"
+            SELECT id, saga_id, status, lease_until, attempt_at,
+                   response_status, error_code
+            FROM webhook_delivery_jobs
+            WHERE status = 'Pending'
+            ORDER BY attempt_at ASC
+            LIMIT @Limit
+            FOR UPDATE SKIP LOCKED
+        ";
+
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var results = await connection.QueryAsync<WebhookDeliveryJob>(
+            new CommandDefinition(sql, new { Limit = limit }, cancellationToken: cancellationToken)
+        );
+
+        return results.ToList();
+    }
+}

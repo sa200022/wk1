@@ -1,0 +1,10 @@
+✓ Phase 1: 資料庫 schema (001_InitialSchema.sql, 002_DatabaseRoles.sql)
+✓ Phase 2: 事件寫入服務 (EventIngestionService, MySqlEventRepository)
+✓ Phase 3: 訂閱設定 API (SubscriptionService, SubscriptionController)
+✓ Phase 4: 路由 worker (RoutingWorkerService, MySqlSagaRepository)
+✓ Phase 5: Saga Orchestrator (SagaOrchestratorService 狀態機核心)
+✓ Phase 6: Job Workers (JobWorkerService, LeaseResetCleanerService)
+✓ Phase 7: 死信模組 (DeadLetterService, Requeue 流程)
+✓ Phase 8: 可觀測性 (CorrelationId, Metrics, 整合測試框架)
+
+🎉 全部 8 個階段完成!詳見 README.md

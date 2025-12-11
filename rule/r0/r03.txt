@@ -1,0 +1,346 @@
+1. Runtime Environment（執行環境）
+1.1 Runtime Stack（執行堆疊）
+
+English
+
+Application Runtime: .NET (C#)
+
+Database: MySQL 8.x (InnoDB required)
+
+Time Standard: UTC for all timestamps
+
+Serialization: JSON, RFC8259 compliant
+
+中文
+
+應用程式執行階段：.NET (C#)
+
+資料庫：MySQL 8.x（強制使用 InnoDB）
+
+時間標準：所有 timestamp 必須使用 UTC
+
+序列化格式：JSON（符合 RFC8259）
+
+1.2 Deployment Assumptions（部署假設）
+
+English
+
+All service instances are stateless.
+
+Horizontal scaling is required.
+
+DB uses row-level locking, no table-level locks.
+
+All components must support safe retry and idempotent writes.
+
+中文
+
+所有服務皆為 無狀態（stateless）。
+
+必須支援 橫向擴展。
+
+資料庫必須是 row-level locking，禁止使用 table-level lock。
+
+所有模組必須支援 安全重試 與 冪等寫入。
+
+2. Consistency Model（資料一致性模型）
+2.1 Write Path Consistency（寫入一致性）
+
+English
+
+Each table must guarantee atomic writes independently.
+
+Cross-table consistency is maintained strictly by state machines (Saga → Job → Dead Letter).
+
+No multi-table transactions spanning sagas, jobs, and events.
+
+中文
+
+每個表的寫入都必須獨立保證原子性。
+
+跨表一致性由 狀態機（state machine） 強制維持，而不是靠跨表交易。
+
+禁止使用跨 Saga、Job、Event 的大型交易。
+
+2.2 Read Model Consistency（讀取一致性）
+
+English
+
+Read behavior is eventually consistent across components.
+
+Cross-table read-after-write strict consistency is not required nor allowed.
+
+中文
+
+跨組件的讀取採用 最終一致性。
+
+不允許依賴跨表交易來保證 read-after-write 的同步強一致性。
+
+3. Idempotency Principles（冪等性核心原則）
+3.1 Definition（定義）
+
+English
+Every write must be safe to retry without altering the final state.
+
+中文
+每個寫入都必須能夠安全重試，且不會造成最終狀態錯誤或重複。
+
+3.2 Implementation Requirements（實作要求）
+
+English
+
+Tables must define unique keys to prevent duplicate logical writes.
+
+All writes must follow INSERT … ON DUPLICATE KEY UPDATE or equivalent.
+
+Idempotency is enforced at DB constraint level, not in application memory.
+
+中文
+
+所有需要寫入的表必須具備 唯一鍵，避免邏輯重複行為。
+
+所有寫入必須使用 INSERT … ON DUPLICATE KEY UPDATE 或其等效語意。
+
+冪等強制點必須在 資料庫 unique key，而不是程式記憶體。
+
+3.3 Component-Level Idempotency（各層冪等行為）
+
+To remain externally consistent with r01 + r02:
+
+Events
+
+append-only
+
+retried ingestion must not create duplicate event
+
+dedup via unique constraint if external ID exists
+
+Subscription
+
+config-only
+
+must not perform orchestration
+
+Saga
+
+unique (event_id, subscription_id) guarantees routing idempotency
+
+job results must be deduplicated using job_id
+
+Jobs
+
+unique (saga_id, attempt_at) prevents duplicated job creation
+
+中文總結：
+各層都以 unique key 控制冪等，不靠程式記憶體。
+
+4. Concurrency Control（併發控制）
+4.1 Locking Strategy（鎖定策略）
+
+English
+
+All worker acquisition of jobs must use:
+
+SELECT … FOR UPDATE SKIP LOCKED
+
+
+No table-level locks allowed.
+
+Transactions must be short and targeted.
+
+中文
+
+Worker 取得 job 必須使用：
+
+SELECT … FOR UPDATE SKIP LOCKED
+
+
+禁止 table-level locking。
+
+所有交易都必須短且精準。
+
+4.2 Lease-Based Concurrency（基於租約的併發控制）
+
+English
+
+Workers use lease_until to prevent double-processing.
+
+Expired leases are reset by Lease Reset Cleaner.
+
+Reset must be idempotent and must not interfere with Saga state machine.
+
+中文
+
+Worker 使用 lease_until 避免重複處理。
+
+過期租約由 Lease Reset Cleaner 重置。
+
+重置動作必須具備冪等性，且不得影響 Saga 的狀態機。
+
+4.3 Saga-Job Interaction Safety（Saga 與 Job 的安全互動）
+
+English
+
+Saga only processes terminal job results (Completed / Failed).
+
+Saga must ignore duplicate job results.
+
+Active job determination is strictly: Pending OR Leased.
+
+中文
+
+Saga 僅處理 終止結果（Completed / Failed）。
+
+重複 job 結果必須忽略。
+
+active job 僅由 Pending / Leased 判定。
+
+5. Responsibility Segmentation（責任分層）
+5.1 Event Layer
+
+English
+Events are immutable and append-only.
+
+中文
+Event 不可修改、只能追加。
+
+5.2 Subscription Layer
+
+English
+Defines routing only.
+No orchestration allowed.
+
+中文
+Subscription 僅定義路由，不得做流程決策。
+
+5.3 Saga Layer
+
+English
+
+Central orchestrator
+
+Only component allowed to change delivery state
+
+中文
+
+流程控制核心
+
+唯一能改變投遞狀態的模組
+
+5.4 Job Execution Layer
+
+English
+
+Executes delivery attempts
+
+No orchestration decisions
+
+中文
+
+只做投遞嘗試
+
+禁止做流程判斷
+
+5.5 Dead Letter Layer
+
+English
+
+Stores permanently failed sagas
+
+Requeue produces new saga, never mutating old ones
+
+中文
+
+保存永久失敗的 saga
+
+Requeue 建立「新 saga」，永不修改舊 saga
+
+6. Failure Handling Principles（失敗處理原則）
+6.1 Retries
+
+English
+
+Retry policy is decided only by Saga.
+
+Workers never retry autonomously.
+
+中文
+
+是否重試只能由 Saga 決定。
+
+Worker 不得自動重試。
+
+6.2 Dead Letter Transition
+
+English
+
+Once marked dead letter, saga becomes immutable.
+
+Requeue creates a new saga with default values.
+
+中文
+
+進入 dead letter 後 saga 永不可再修改。
+
+Requeue 必須產生一個新的 saga。
+
+7. Indexing Principles（索引原則）
+7.1 Required Index Patterns
+
+English
+All time-based selectors must use:
+
+(status, next_attempt_at) for sagas
+
+(status, lease_until) for jobs
+
+中文
+所有依時間查詢資料必須使用以下索引：
+
+Saga → (status, next_attempt_at)
+
+Job → (status, lease_until)
+
+8. Security & Permissions（安全與權限）
+8.1 Role Separation（角色隔離）
+
+English
+
+Event ingestion writes only events
+
+Workers write only job results.
+Workers must never create, update, or delete saga records.
+Dead letter operators can only requeue via controlled API
+
+中文
+
+Event ingestion 只能寫 event
+
+Worker 只能寫 job 結果，不得修改 saga。
+Worker 不得建立、更新或刪除任何 saga 資料列。
+Dead letter 操作只能透過 API requeue，不得直接改資料表
+
+9. Observability Principles（可觀測性原則）
+9.1 Required Logs
+
+English
+Each stage must log:
+
+correlation_id
+
+saga_id (if any)
+
+job_id (if any)
+
+delivery_status
+
+中文
+每個階段都必須記錄：
+
+correlation_id
+
+saga_id（若有）
+
+job_id（若有）
+
+delivery_status
