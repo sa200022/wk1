@@ -1,0 +1,45 @@
+# .dockerignore
+# 排除不需要的檔案以加快 Docker build 速度
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Visual Studio / Rider
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.sln.docstates
+
+# Build outputs
+**/bin/
+**/obj/
+**/out/
+
+# NuGet
+packages/
+*.nupkg
+
+# Test results
+TestResults/
+*.trx
+
+# Docker files
+**/Dockerfile
+**/docker-compose*.yml
+.dockerignore
+
+# Documentation
+*.md
+docs/
+
+# Rule files
+rule/
+
+# Temporary files
+*.tmp
+*.log
+*.bak

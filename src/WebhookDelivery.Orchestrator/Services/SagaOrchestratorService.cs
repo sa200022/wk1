@@ -23,6 +23,8 @@ public sealed class SagaOrchestratorService : BackgroundService
 {
     private readonly ISagaRepository _sagaRepository;
     private readonly IJobRepository _jobRepository;
+    private readonly IDeadLetterRepository _deadLetterRepository;
+    private readonly IEventRepository _eventRepository;
     private readonly ILogger<SagaOrchestratorService> _logger;
     private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);
     private readonly int _maxRetryLimit;
@@ -31,11 +33,15 @@ public sealed class SagaOrchestratorService : BackgroundService
     public SagaOrchestratorService(
         ISagaRepository sagaRepository,
         IJobRepository jobRepository,
+        IDeadLetterRepository deadLetterRepository,
+        IEventRepository eventRepository,
         IConfiguration configuration,
         ILogger<SagaOrchestratorService> logger)
     {
         _sagaRepository = sagaRepository ?? throw new ArgumentNullException(nameof(sagaRepository));
         _jobRepository = jobRepository ?? throw new ArgumentNullException(nameof(jobRepository));
+        _deadLetterRepository = deadLetterRepository ?? throw new ArgumentNullException(nameof(deadLetterRepository));
+        _eventRepository = eventRepository ?? throw new ArgumentNullException(nameof(eventRepository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         _maxRetryLimit = configuration.GetValue<int>("Saga:MaxRetryLimit", 5);
@@ -160,13 +166,44 @@ public sealed class SagaOrchestratorService : BackgroundService
     /// </summary>
     private async Task ProcessJobResultsAsync(CancellationToken cancellationToken)
     {
-        // Note: This is simplified - in production, use job result queue or event-driven approach
-        // For now, we would query for sagas in InProgress status and check their latest terminal job
+        // Get all InProgress sagas
+        var inProgressSagas = await _sagaRepository.GetInProgressSagasAsync(100, cancellationToken);
 
-        // Implementation would:
-        // 1. Get all InProgress sagas
-        // 2. For each, check if latest job is terminal (Completed/Failed)
-        // 3. Apply job result to saga with idempotency check
+        foreach (var saga in inProgressSagas)
+        {
+            try
+            {
+                // Get terminal jobs for this saga
+                var terminalJobs = await _jobRepository.GetTerminalJobsBySagaIdAsync(saga.Id, cancellationToken);
+
+                if (!terminalJobs.Any())
+                {
+                    // No terminal job yet, saga is still waiting for job worker
+                    continue;
+                }
+
+                // Get the latest terminal job (most recent attempt)
+                var latestJob = terminalJobs.OrderByDescending(j => j.AttemptAt).First();
+
+                // Apply job result to saga based on job status
+                if (latestJob.Status == JobStatus.Completed)
+                {
+                    await ApplyJobSuccessAsync(saga.Id, latestJob.Id, cancellationToken);
+                }
+                else if (latestJob.Status == JobStatus.Failed)
+                {
+                    var errorCode = latestJob.ErrorCode ?? "UNKNOWN_ERROR";
+                    await ApplyJobFailureAsync(saga.Id, latestJob.Id, errorCode, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to process job results for saga {SagaId}",
+                    saga.Id);
+            }
+        }
     }
 
     /// <summary>
@@ -190,7 +227,28 @@ public sealed class SagaOrchestratorService : BackgroundService
             return;
         }
 
-        // Idempotency check would go here (check if jobId already processed)
+        // Idempotency check: verify this is the latest job for this saga
+        var job = await _jobRepository.GetByIdAsync(jobId, cancellationToken);
+        if (job == null)
+        {
+            _logger.LogWarning("Job {JobId} not found, ignoring", jobId);
+            return;
+        }
+
+        // Get all terminal jobs for this saga to check if this job was already processed
+        var terminalJobs = await _jobRepository.GetTerminalJobsBySagaIdAsync(sagaId, cancellationToken);
+        var latestTerminalJob = terminalJobs.OrderByDescending(j => j.AttemptAt).FirstOrDefault();
+
+        if (latestTerminalJob != null && latestTerminalJob.Id != jobId)
+        {
+            // A more recent job has already been processed
+            _logger.LogWarning(
+                "Job {JobId} is not the latest terminal job for saga {SagaId}, ignoring (latest: {LatestJobId})",
+                jobId,
+                sagaId,
+                latestTerminalJob.Id);
+            return;
+        }
 
         // Mark saga as Completed
         var updated = saga with
@@ -229,7 +287,28 @@ public sealed class SagaOrchestratorService : BackgroundService
             return;
         }
 
-        // Idempotency check would go here
+        // Idempotency check: verify this is the latest job for this saga
+        var job = await _jobRepository.GetByIdAsync(jobId, cancellationToken);
+        if (job == null)
+        {
+            _logger.LogWarning("Job {JobId} not found, ignoring", jobId);
+            return;
+        }
+
+        // Get all terminal jobs for this saga to check if this job was already processed
+        var terminalJobs = await _jobRepository.GetTerminalJobsBySagaIdAsync(sagaId, cancellationToken);
+        var latestTerminalJob = terminalJobs.OrderByDescending(j => j.AttemptAt).FirstOrDefault();
+
+        if (latestTerminalJob != null && latestTerminalJob.Id != jobId)
+        {
+            // A more recent job has already been processed
+            _logger.LogWarning(
+                "Job {JobId} is not the latest terminal job for saga {SagaId}, ignoring (latest: {LatestJobId})",
+                jobId,
+                sagaId,
+                latestTerminalJob.Id);
+            return;
+        }
 
         // Increment attempt count
         var newAttemptCount = saga.AttemptCount + 1;
@@ -252,7 +331,9 @@ public sealed class SagaOrchestratorService : BackgroundService
                 sagaId,
                 newAttemptCount);
 
-            // Trigger Dead Letter module (would be implemented in Phase 7)
+            // Create dead letter record with event payload snapshot
+            await CreateDeadLetterRecordAsync(deadLettered, cancellationToken);
+
             return;
         }
 
@@ -285,5 +366,47 @@ public sealed class SagaOrchestratorService : BackgroundService
         var multiplier = Math.Pow(2, attemptCount - 1);
         var delaySeconds = _baseDelay.TotalSeconds * multiplier;
         return TimeSpan.FromSeconds(Math.Min(delaySeconds, 3600)); // Cap at 1 hour
+    }
+
+    /// <summary>
+    /// Creates a dead letter record when a saga is permanently failed
+    /// Includes event payload snapshot for future requeue
+    /// </summary>
+    private async Task CreateDeadLetterRecordAsync(
+        WebhookDeliverySaga saga,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Get event payload for snapshot
+            var @event = await _eventRepository.GetByIdAsync(saga.EventId, cancellationToken);
+            if (@event == null)
+            {
+                _logger.LogError(
+                    "Cannot create dead letter for saga {SagaId}: event {EventId} not found",
+                    saga.Id,
+                    saga.EventId);
+                return;
+            }
+
+            // Create dead letter entry using factory method
+            var deadLetter = DeadLetter.FromSaga(saga, @event.Payload);
+
+            await _deadLetterRepository.CreateAsync(deadLetter, cancellationToken);
+
+            _logger.LogInformation(
+                "Dead letter record created for saga {SagaId} (event {EventId}, subscription {SubscriptionId})",
+                saga.Id,
+                saga.EventId,
+                saga.SubscriptionId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to create dead letter record for saga {SagaId}",
+                saga.Id);
+            // Don't throw - saga is already dead-lettered, this is just for observability
+        }
     }
 }

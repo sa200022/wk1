@@ -1,0 +1,231 @@
+# ============================================================================
+# Docker Compose for Webhook Delivery System
+# ============================================================================
+# Usage:
+#   docker-compose up -d              # Start all services
+#   docker-compose down               # Stop all services
+#   docker-compose logs -f [service]  # View logs
+#   docker-compose ps                 # Check status
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # MySQL Database
+  # ==========================================================================
+  mysql:
+    image: mysql:8.0
+    container_name: webhook_delivery_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password_change_me}
+      MYSQL_DATABASE: webhook_delivery
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./src/WebhookDelivery.Database/Scripts:/docker-entrypoint-initdb.d:ro
+    networks:
+      - webhook_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ==========================================================================
+  # Event Ingestion Service (BackgroundService)
+  # ==========================================================================
+  event-ingestion:
+    build:
+      context: .
+      dockerfile: src/WebhookDelivery.EventIngestion/Dockerfile
+    container_name: webhook_delivery_event_ingestion
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=webhook_delivery;Uid=event_ingest_writer;Pwd=${DB_PASSWORD_EVENT_INGEST:-dev_password_event_ingest};CharSet=utf8mb4;
+      - Logging__LogLevel__Default=Information
+      - Logging__LogLevel__WebhookDelivery=Debug
+    networks:
+      - webhook_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================================================================
+  # Subscription API (Web API)
+  # ==========================================================================
+  subscription-api:
+    build:
+      context: .
+      dockerfile: src/WebhookDelivery.SubscriptionApi/Dockerfile
+    container_name: webhook_delivery_subscription_api
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5001
+      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=webhook_delivery;Uid=subscription_admin;Pwd=${DB_PASSWORD_SUBSCRIPTION_ADMIN:-dev_password_subscription};CharSet=utf8mb4;
+      - Logging__LogLevel__Default=Information
+      - Logging__LogLevel__WebhookDelivery=Debug
+    ports:
+      - "5001:5001"
+    networks:
+      - webhook_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================================================================
+  # Router Service (BackgroundService)
+  # ==========================================================================
+  router:
+    build:
+      context: .
+      dockerfile: src/WebhookDelivery.Router/Dockerfile
+    container_name: webhook_delivery_router
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=webhook_delivery;Uid=router_worker;Pwd=${DB_PASSWORD_ROUTER_WORKER:-dev_password_router};CharSet=utf8mb4;
+      - RoutingWorkerSettings__PollingIntervalSeconds=5
+      - RoutingWorkerSettings__BatchSize=100
+      - Logging__LogLevel__Default=Information
+      - Logging__LogLevel__WebhookDelivery=Debug
+    networks:
+      - webhook_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================================================================
+  # Saga Orchestrator Service (BackgroundService)
+  # ==========================================================================
+  orchestrator:
+    build:
+      context: .
+      dockerfile: src/WebhookDelivery.Orchestrator/Dockerfile
+    container_name: webhook_delivery_orchestrator
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=webhook_delivery;Uid=saga_orchestrator;Pwd=${DB_PASSWORD_SAGA_ORCHESTRATOR:-dev_password_orchestrator};CharSet=utf8mb4;
+      - SagaOrchestratorSettings__PollingIntervalSeconds=3
+      - SagaOrchestratorSettings__MaxRetryLimit=5
+      - SagaOrchestratorSettings__BaseDelaySeconds=30
+      - Logging__LogLevel__Default=Information
+      - Logging__LogLevel__WebhookDelivery=Debug
+    networks:
+      - webhook_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================================================================
+  # Job Worker Service (BackgroundService - Dual Services)
+  # ==========================================================================
+  worker:
+    build:
+      context: .
+      dockerfile: src/WebhookDelivery.Worker/Dockerfile
+    container_name: webhook_delivery_worker
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=webhook_delivery;Uid=job_worker;Pwd=${DB_PASSWORD_JOB_WORKER:-dev_password_worker};CharSet=utf8mb4;
+      - JobWorkerSettings__PollingIntervalSeconds=2
+      - JobWorkerSettings__BatchSize=10
+      - JobWorkerSettings__LeaseDurationSeconds=60
+      - JobWorkerSettings__HttpTimeoutSeconds=30
+      - LeaseResetCleanerSettings__CleanupIntervalSeconds=30
+      - Logging__LogLevel__Default=Information
+      - Logging__LogLevel__WebhookDelivery=Debug
+    networks:
+      - webhook_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================================================================
+  # Dead Letter API (Web API)
+  # ==========================================================================
+  deadletter-api:
+    build:
+      context: .
+      dockerfile: src/WebhookDelivery.DeadLetter/Dockerfile
+    container_name: webhook_delivery_deadletter_api
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5003
+      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=webhook_delivery;Uid=dead_letter_operator;Pwd=${DB_PASSWORD_DEAD_LETTER_OPERATOR:-dev_password_deadletter};CharSet=utf8mb4;
+      - Logging__LogLevel__Default=Information
+      - Logging__LogLevel__WebhookDelivery=Debug
+    ports:
+      - "5003:5003"
+    networks:
+      - webhook_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ==========================================================================
+# Networks
+# ==========================================================================
+networks:
+  webhook_network:
+    driver: bridge
+    name: webhook_delivery_network
+
+# ==========================================================================
+# Volumes
+# ==========================================================================
+volumes:
+  mysql_data:
+    name: webhook_delivery_mysql_data

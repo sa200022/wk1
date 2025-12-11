@@ -28,5 +28,9 @@ public interface ISagaRepository
         int limit,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<WebhookDeliverySaga>> GetInProgressSagasAsync(
+        int limit,
+        CancellationToken cancellationToken = default);
+
     Task UpdateAsync(WebhookDeliverySaga saga, CancellationToken cancellationToken = default);
 }

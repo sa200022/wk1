@@ -1,0 +1,66 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Dapper;
+using MySqlConnector;
+using WebhookDelivery.Core.Models;
+using WebhookDelivery.Core.Repositories;
+
+namespace WebhookDelivery.Worker.Infrastructure;
+
+/// <summary>
+/// MySQL Subscription Repository for Worker (READ-ONLY)
+/// Worker only needs to read subscription callback_url for delivery
+/// </summary>
+public sealed class MySqlSubscriptionRepository : ISubscriptionRepository
+{
+    private readonly string _connectionString;
+
+    public MySqlSubscriptionRepository(string connectionString)
+    {
+        _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
+    }
+
+    public async Task<Subscription?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
+    {
+        const string sql = @"
+            SELECT id, event_type, callback_url, active, verified, created_at, updated_at
+            FROM subscriptions
+            WHERE id = @Id
+        ";
+
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        return await connection.QuerySingleOrDefaultAsync<Subscription>(
+            new CommandDefinition(sql, new { Id = id }, cancellationToken: cancellationToken)
+        );
+    }
+
+    public Task<IReadOnlyList<Subscription>> GetActiveByEventTypeAsync(
+        string eventType,
+        CancellationToken cancellationToken = default)
+    {
+        // Worker doesn't need this method
+        throw new InvalidOperationException("Worker does not query subscriptions by event type");
+    }
+
+    public Task<Subscription> CreateAsync(Subscription subscription, CancellationToken cancellationToken = default)
+    {
+        // Worker cannot create subscriptions
+        throw new InvalidOperationException("Worker does not have permission to create subscriptions");
+    }
+
+    public Task UpdateAsync(Subscription subscription, CancellationToken cancellationToken = default)
+    {
+        // Worker cannot update subscriptions
+        throw new InvalidOperationException("Worker does not have permission to update subscriptions");
+    }
+
+    public Task<IReadOnlyList<Subscription>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        // Worker doesn't need this method
+        throw new InvalidOperationException("Worker does not need to query all subscriptions");
+    }
+}

@@ -1,0 +1,43 @@
+# ============================================================================
+# Docker Compose for Local Development (simplified version)
+# ============================================================================
+# Usage:
+#   docker-compose -f docker-compose.dev.yml up -d
+#   docker-compose -f docker-compose.dev.yml down
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # MySQL only for local development
+  mysql:
+    image: mysql:8.0
+    container_name: webhook_delivery_mysql_dev
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: test
+      MYSQL_DATABASE: webhook_delivery
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_dev_data:/var/lib/mysql
+      - ./src/WebhookDelivery.Database/Scripts:/docker-entrypoint-initdb.d:ro
+    networks:
+      - webhook_dev_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ptest"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+networks:
+  webhook_dev_network:
+    driver: bridge
+    name: webhook_delivery_dev_network
+
+volumes:
+  mysql_dev_data:
+    name: webhook_delivery_mysql_dev_data
