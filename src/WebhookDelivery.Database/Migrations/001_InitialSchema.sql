@@ -16,10 +16,12 @@ SET NAMES utf8mb4;
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS `events` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `external_event_id` VARCHAR(255) NULL,
     `event_type` VARCHAR(100) NOT NULL,
     `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     `payload` JSON NOT NULL,
     PRIMARY KEY (`id`),
+    UNIQUE KEY `uniq_event_external_id` (`external_event_id`),
     INDEX `idx_event_created` (`created_at`),
     INDEX `idx_event_type` (`event_type`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

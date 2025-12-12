@@ -162,7 +162,7 @@ public class PermissionTests : TestBase
             "https://example.com/webhook");
 
         var sagaId = await InsertTestSagaAsync(eventId, subscriptionId, "InProgress", 1);
-        var jobId = await InsertTestJobAsync(sagaId, 1, "InProgress", null);
+        var jobId = await InsertTestJobAsync(sagaId, status: "Pending");
 
         await using var conn = new MySqlConnection(ConnectionString);
 
@@ -171,16 +171,14 @@ public class PermissionTests : TestBase
             UPDATE webhook_delivery_jobs
             SET status = 'Completed',
                 response_status = @ResponseStatus,
-                response_body = @ResponseBody,
-                completed_at = @CompletedAt
+                error_code = NULL,
+                lease_until = NULL
             WHERE id = @Id";
 
         var jobRowsAffected = await conn.ExecuteAsync(updateJobSql, new
         {
             Id = jobId,
-            ResponseStatus = 200,
-            ResponseBody = "OK",
-            CompletedAt = DateTime.UtcNow
+            ResponseStatus = 200
         });
 
         // Assert 1: Job updated successfully
@@ -224,8 +222,8 @@ public class PermissionTests : TestBase
 
         // Act 1: Event ingestion can INSERT event (append-only)
         var insertSql = @"
-            INSERT INTO events (external_event_id, event_type, payload, ingested_at)
-            VALUES (@ExternalEventId, @EventType, @Payload, @IngestedAt)
+            INSERT INTO events (external_event_id, event_type, payload, created_at)
+            VALUES (@ExternalEventId, @EventType, @Payload, @CreatedAt)
             ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
             SELECT LAST_INSERT_ID();";
 
@@ -234,7 +232,7 @@ public class PermissionTests : TestBase
             ExternalEventId = externalEventId,
             EventType = eventType,
             Payload = payload.RootElement.GetRawText(),
-            IngestedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow
         });
 
         // Assert 1: Event created successfully

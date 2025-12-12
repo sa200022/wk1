@@ -28,8 +28,8 @@ public class IdempotencyTests : TestBase
         // Second insert should fail due to unique constraint or return same ID
         await using var conn = new MySqlConnection(ConnectionString);
         var sql = @"
-            INSERT INTO events (external_event_id, event_type, payload, ingested_at)
-            VALUES (@ExternalEventId, @EventType, @Payload, @IngestedAt)
+            INSERT INTO events (external_event_id, event_type, payload, created_at)
+            VALUES (@ExternalEventId, @EventType, @Payload, @CreatedAt)
             ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)";
 
         var eventId2 = await conn.ExecuteScalarAsync<long>(sql, new
@@ -37,7 +37,7 @@ public class IdempotencyTests : TestBase
             ExternalEventId = externalEventId,
             EventType = eventType,
             Payload = payload.RootElement.GetRawText(),
-            IngestedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow
         });
 
         // Assert: Only one event record exists
@@ -107,7 +107,7 @@ public class IdempotencyTests : TestBase
             "https://example.com/webhook");
 
         var sagaId = await InsertTestSagaAsync(eventId, subscriptionId, "InProgress", 1);
-        var jobId = await InsertTestJobAsync(sagaId, 1, "Completed", 200);
+        var jobId = await InsertTestJobAsync(sagaId, status: "Completed", responseStatus: 200);
 
         await using var conn = new MySqlConnection(ConnectionString);
 
@@ -160,26 +160,17 @@ public class IdempotencyTests : TestBase
 
         // Insert job with expired lease (5 minutes ago)
         var expiredLeaseTime = DateTime.UtcNow.AddMinutes(-5);
-        var jobId = await conn.ExecuteScalarAsync<long>(@"
-            INSERT INTO webhook_delivery_jobs
-                (saga_id, attempt_number, status, leased_until, attempt_at, created_at)
-            VALUES
-                (@SagaId, @AttemptNumber, @Status, @LeasedUntil, @AttemptAt, @CreatedAt);
-            SELECT LAST_INSERT_ID();", new
-        {
-            SagaId = sagaId,
-            AttemptNumber = 1,
-            Status = "InProgress",
-            LeasedUntil = expiredLeaseTime,
-            AttemptAt = DateTime.UtcNow.AddMinutes(-5),
-            CreatedAt = DateTime.UtcNow.AddMinutes(-5)
-        });
+        var jobId = await InsertTestJobAsync(
+            sagaId,
+            status: "Leased",
+            leaseUntil: expiredLeaseTime,
+            attemptAt: DateTime.UtcNow.AddMinutes(-5));
 
         // Act: Simulate lease cleaner reset
         var resetSql = @"
             UPDATE webhook_delivery_jobs
-            SET status = 'Pending', leased_until = NULL
-            WHERE status = 'InProgress' AND leased_until < @Now";
+            SET status = 'Pending', lease_until = NULL
+            WHERE status = 'Leased' AND lease_until < @Now";
 
         var resetCount = await conn.ExecuteAsync(resetSql, new { Now = DateTime.UtcNow });
 
@@ -187,11 +178,11 @@ public class IdempotencyTests : TestBase
         Assert.Equal(1, resetCount);
 
         var job = await conn.QuerySingleAsync<dynamic>(
-            "SELECT status, leased_until FROM webhook_delivery_jobs WHERE id = @Id",
+            "SELECT status, lease_until FROM webhook_delivery_jobs WHERE id = @Id",
             new { Id = jobId });
 
         Assert.Equal("Pending", job.status);
-        Assert.Null(job.leased_until);
+        Assert.Null(job.lease_until);
     }
 
     [Fact]
@@ -211,7 +202,11 @@ public class IdempotencyTests : TestBase
         var sagaId = await InsertTestSagaAsync(eventId, subscriptionId, "InProgress", maxRetryLimit);
 
         // Insert final failed job
-        var jobId = await InsertTestJobAsync(sagaId, maxRetryLimit, "Failed", 500, "Internal Server Error");
+        var jobId = await InsertTestJobAsync(
+            sagaId,
+            status: "Failed",
+            responseStatus: 500,
+            errorCode: "Internal Server Error");
 
         await using var conn = new MySqlConnection(ConnectionString);
 

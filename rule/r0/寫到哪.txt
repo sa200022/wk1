@@ -1,4 +1,4 @@
-✓ Phase 1: 資料庫 schema (001_InitialSchema.sql, 002_DatabaseRoles.sql)
+﻿✓ Phase 1: 資料庫 schema (001_InitialSchema.sql, 002_DatabaseRoles.sql)
 ✓ Phase 2: 事件寫入服務 (EventIngestionService, MySqlEventRepository)
 ✓ Phase 3: 訂閱設定 API (SubscriptionService, SubscriptionController)
 ✓ Phase 4: 路由 worker (RoutingWorkerService, MySqlSagaRepository)

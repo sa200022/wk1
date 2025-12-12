@@ -1,4 +1,4 @@
-Purpose（目的）
+﻿Purpose（目的）
 English
 The Delivery Saga is the orchestration layer that coordinates multi-step webhook delivery attempts, retry logic, state transitions, and final dead-lettering. It is the only component allowed to transform the delivery state.
 

@@ -1,7 +1,8 @@
 using System;
 using System.Threading.Tasks;
+using System.Text.Json;
 using Microsoft.Extensions.Configuration;
-using MySql.Data.MySqlClient;
+using MySqlConnector;
 using Xunit;
 
 namespace WebhookDelivery.IntegrationTests;
@@ -96,20 +97,29 @@ public abstract class TestBase : IAsyncLifetime
         }
     }
 
-    protected async Task<long> InsertTestEventAsync(string eventType = "test.event", string payload = "{\"test\":true}")
+    protected async Task<long> InsertTestEventAsync(
+        string eventType = "test.event",
+        string payload = "{\"test\":true}",
+        string? externalEventId = null,
+        DateTime? createdAt = null)
     {
         await using var connection = new MySqlConnection(ConnectionString);
         await connection.OpenAsync();
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = @"
-            INSERT INTO events (event_type, payload, created_at)
-            VALUES (@EventType, @Payload, UTC_TIMESTAMP(6));
+            INSERT INTO events (external_event_id, event_type, payload, created_at)
+            VALUES (@ExternalEventId, @EventType, @Payload, @CreatedAt);
             SELECT LAST_INSERT_ID();
         ";
+        cmd.Parameters.AddWithValue("@ExternalEventId", (object?)externalEventId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@EventType", eventType);
         cmd.Parameters.AddWithValue("@Payload", payload);
+        cmd.Parameters.AddWithValue("@CreatedAt", createdAt ?? DateTime.UtcNow);
         return Convert.ToInt64(await cmd.ExecuteScalarAsync());
     }
+
+    protected Task<long> InsertTestEventAsync(string externalEventId, string eventType, JsonDocument payload, DateTime? createdAt = null)
+        => InsertTestEventAsync(eventType, payload.RootElement.GetRawText(), externalEventId, createdAt);
 
     protected async Task<long> InsertTestSubscriptionAsync(
         string eventType = "test.event",
@@ -157,20 +167,28 @@ public abstract class TestBase : IAsyncLifetime
 
     protected async Task<long> InsertTestJobAsync(
         long sagaId,
-        string status = "Pending")
+        string status = "Pending",
+        DateTime? leaseUntil = null,
+        DateTime? attemptAt = null,
+        int? responseStatus = null,
+        string? errorCode = null)
     {
         await using var connection = new MySqlConnection(ConnectionString);
         await connection.OpenAsync();
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = @"
             INSERT INTO webhook_delivery_jobs
-                (saga_id, status, attempt_at)
+                (saga_id, status, lease_until, attempt_at, response_status, error_code)
             VALUES
-                (@SagaId, @Status, UTC_TIMESTAMP(6));
+                (@SagaId, @Status, @LeaseUntil, @AttemptAt, @ResponseStatus, @ErrorCode);
             SELECT LAST_INSERT_ID();
         ";
         cmd.Parameters.AddWithValue("@SagaId", sagaId);
         cmd.Parameters.AddWithValue("@Status", status);
+        cmd.Parameters.AddWithValue("@LeaseUntil", (object?)leaseUntil ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@AttemptAt", attemptAt ?? DateTime.UtcNow);
+        cmd.Parameters.AddWithValue("@ResponseStatus", (object?)responseStatus ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@ErrorCode", (object?)errorCode ?? DBNull.Value);
         return Convert.ToInt64(await cmd.ExecuteScalarAsync());
     }
 }

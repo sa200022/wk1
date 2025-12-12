@@ -1,4 +1,4 @@
-Phase 1 – Design and migrate database schema
+﻿Phase 1 – Design and migrate database schema
 階段一 – 設計並遷移資料庫結構
 
 Phase＝階段 / design＝設計 / migrate＝遷移 / database schema＝資料庫結構

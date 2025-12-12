@@ -1,4 +1,4 @@
-1. Runtime Environment（執行環境）
+﻿1. Runtime Environment（執行環境）
 1.1 Runtime Stack（執行堆疊）
 
 English

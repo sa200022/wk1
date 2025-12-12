@@ -33,15 +33,9 @@ public class DeadLetterTests : TestBase
         // Act: Simulate orchestrator creating dead letter record
         var deadLetterSql = @"
             INSERT INTO dead_letters
-                (saga_id, event_id, subscription_id,
-                 event_type, callback_url, event_payload_snapshot,
-                 attempt_count, final_error_code, final_error_message,
-                 created_at)
+                (saga_id, event_id, subscription_id, final_error_code, payload_snapshot)
             VALUES
-                (@SagaId, @EventId, @SubscriptionId,
-                 @EventType, @CallbackUrl, @EventPayloadSnapshot,
-                 @AttemptCount, @FinalErrorCode, @FinalErrorMessage,
-                 @CreatedAt);
+                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @PayloadSnapshot);
             SELECT LAST_INSERT_ID();";
 
         var deadLetterId = await conn.ExecuteScalarAsync<long>(deadLetterSql, new
@@ -49,13 +43,8 @@ public class DeadLetterTests : TestBase
             SagaId = sagaId,
             EventId = eventId,
             SubscriptionId = subscriptionId,
-            EventType = "order.created",
-            CallbackUrl = "https://example.com/webhook",
-            EventPayloadSnapshot = payload.RootElement.GetRawText(),
-            AttemptCount = maxRetryLimit,
             FinalErrorCode = "HTTP_500",
-            FinalErrorMessage = "Internal Server Error",
-            CreatedAt = DateTime.UtcNow
+            PayloadSnapshot = payload.RootElement.GetRawText()
         });
 
         // Assert: Dead letter record created successfully
@@ -68,9 +57,8 @@ public class DeadLetterTests : TestBase
         Assert.Equal(sagaId, (long)deadLetter.saga_id);
         Assert.Equal(eventId, (long)deadLetter.event_id);
         Assert.Equal(subscriptionId, (long)deadLetter.subscription_id);
-        Assert.Equal("order.created", deadLetter.event_type);
-        Assert.Equal(maxRetryLimit, deadLetter.attempt_count);
-        Assert.Contains("orderId", (string)deadLetter.event_payload_snapshot);
+        Assert.Equal("HTTP_500", (string)deadLetter.final_error_code);
+        Assert.Contains("orderId", (string)deadLetter.payload_snapshot);
     }
 
     [Fact]
@@ -92,26 +80,15 @@ public class DeadLetterTests : TestBase
         // Insert dead letter record
         await conn.ExecuteAsync(@"
             INSERT INTO dead_letters
-                (saga_id, event_id, subscription_id,
-                 event_type, callback_url, event_payload_snapshot,
-                 attempt_count, final_error_code, final_error_message,
-                 created_at)
+                (saga_id, event_id, subscription_id, final_error_code, payload_snapshot)
             VALUES
-                (@SagaId, @EventId, @SubscriptionId,
-                 @EventType, @CallbackUrl, @EventPayloadSnapshot,
-                 @AttemptCount, @FinalErrorCode, @FinalErrorMessage,
-                 @CreatedAt)", new
+                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @PayloadSnapshot)", new
         {
             SagaId = deadLetteredSagaId,
             EventId = eventId,
             SubscriptionId = subscriptionId,
-            EventType = "payment.failed",
-            CallbackUrl = "https://example.com/webhook",
-            EventPayloadSnapshot = payload.RootElement.GetRawText(),
-            AttemptCount = 5,
             FinalErrorCode = "HTTP_503",
-            FinalErrorMessage = "Service Unavailable",
-            CreatedAt = DateTime.UtcNow
+            PayloadSnapshot = payload.RootElement.GetRawText()
         });
 
         // Act: Requeue - create NEW saga with fresh state
@@ -181,34 +158,23 @@ public class DeadLetterTests : TestBase
         // Act: Create dead letter with payload snapshot
         await conn.ExecuteAsync(@"
             INSERT INTO dead_letters
-                (saga_id, event_id, subscription_id,
-                 event_type, callback_url, event_payload_snapshot,
-                 attempt_count, final_error_code, final_error_message,
-                 created_at)
+                (saga_id, event_id, subscription_id, final_error_code, payload_snapshot)
             VALUES
-                (@SagaId, @EventId, @SubscriptionId,
-                 @EventType, @CallbackUrl, @EventPayloadSnapshot,
-                 @AttemptCount, @FinalErrorCode, @FinalErrorMessage,
-                 @CreatedAt)", new
+                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @PayloadSnapshot)", new
         {
             SagaId = sagaId,
             EventId = eventId,
             SubscriptionId = subscriptionId,
-            EventType = "order.created",
-            CallbackUrl = "https://example.com/webhook",
-            EventPayloadSnapshot = complexPayload.RootElement.GetRawText(),
-            AttemptCount = 5,
             FinalErrorCode = "HTTP_500",
-            FinalErrorMessage = "Internal Server Error",
-            CreatedAt = DateTime.UtcNow
+            PayloadSnapshot = complexPayload.RootElement.GetRawText()
         });
 
         // Assert: Snapshot contains all original payload data
         var deadLetter = await conn.QuerySingleAsync<dynamic>(
-            "SELECT event_payload_snapshot FROM dead_letters WHERE saga_id = @SagaId",
+            "SELECT payload_snapshot FROM dead_letters WHERE saga_id = @SagaId",
             new { SagaId = sagaId });
 
-        var snapshotJson = (string)deadLetter.event_payload_snapshot;
+        var snapshotJson = (string)deadLetter.payload_snapshot;
         Assert.Contains("orderId", snapshotJson);
         Assert.Contains("777", snapshotJson);
         Assert.Contains("items", snapshotJson);
@@ -236,45 +202,31 @@ public class DeadLetterTests : TestBase
 
         var deadLetterId = await conn.ExecuteScalarAsync<long>(@"
             INSERT INTO dead_letters
-                (saga_id, event_id, subscription_id,
-                 event_type, callback_url, event_payload_snapshot,
-                 attempt_count, final_error_code, final_error_message,
-                 created_at)
+                (saga_id, event_id, subscription_id, final_error_code, payload_snapshot)
             VALUES
-                (@SagaId, @EventId, @SubscriptionId,
-                 @EventType, @CallbackUrl, @EventPayloadSnapshot,
-                 @AttemptCount, @FinalErrorCode, @FinalErrorMessage,
-                 @CreatedAt);
+                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @PayloadSnapshot);
             SELECT LAST_INSERT_ID();", new
         {
             SagaId = sagaId,
             EventId = eventId,
             SubscriptionId = subscriptionId,
-            EventType = "order.created",
-            CallbackUrl = "https://example.com/webhook",
-            EventPayloadSnapshot = "{\"orderId\": 999}",
-            AttemptCount = 5,
             FinalErrorCode = "HTTP_500",
-            FinalErrorMessage = "Original Error",
-            CreatedAt = DateTime.UtcNow
+            PayloadSnapshot = "{\"orderId\": 999}"
         });
 
-        // Act: Attempt to update dead letter (should be prevented by application logic)
-        // In real system, dead_letter_operator role should NOT have UPDATE permission
+        // Act: Attempt to update dead letter (should be prevented by permissions in real system)
         var updateSql = @"
             UPDATE dead_letters
-            SET final_error_message = 'Modified Error'
+            SET final_error_code = 'MODIFIED'
             WHERE id = @Id";
 
         var rowsAffected = await conn.ExecuteAsync(updateSql, new { Id = deadLetterId });
 
-        // Assert: If update was allowed by permissions, verify original data remains for audit
+        // Assert: Dead letter remains present (in production this update should be denied)
         var deadLetter = await conn.QuerySingleAsync<dynamic>(
-            "SELECT final_error_message FROM dead_letters WHERE id = @Id",
+            "SELECT final_error_code FROM dead_letters WHERE id = @Id",
             new { Id = deadLetterId });
 
-        // In production with proper roles, this update would fail
-        // This test documents the immutability requirement
-        Assert.NotNull(deadLetter.final_error_message);
+        Assert.NotNull(deadLetter.final_error_code);
     }
 }

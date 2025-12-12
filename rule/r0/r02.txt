@@ -1,4 +1,4 @@
-Purpose（目的）
+﻿Purpose（目的）
 
 English
 This document defines two execution-stage components:
