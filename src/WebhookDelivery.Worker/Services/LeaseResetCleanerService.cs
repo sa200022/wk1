@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Dapper;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using MySqlConnector;
+using Npgsql;
 
 namespace WebhookDelivery.Worker.Services;
 
@@ -61,10 +61,10 @@ public sealed class LeaseResetCleanerService : BackgroundService
             SET status = 'Pending',
                 lease_until = NULL
             WHERE status = 'Leased'
-              AND lease_until < UTC_TIMESTAMP(6)
+              AND lease_until < NOW()
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var rowsAffected = await connection.ExecuteAsync(

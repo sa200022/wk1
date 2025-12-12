@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Dapper;
-using MySqlConnector;
+using Npgsql;
 using WebhookDelivery.Core.Models;
 using WebhookDelivery.Core.Repositories;
 
@@ -23,19 +23,24 @@ public sealed class MySqlSagaRepository : ISagaRepository
         WebhookDeliverySaga saga,
         CancellationToken cancellationToken = default)
     {
-        // Using INSERT ... ON DUPLICATE KEY UPDATE for idempotency
-        // If (event_id, subscription_id) already exists, no update is performed
+        // Using ON CONFLICT for idempotency: if (event_id, subscription_id) exists, return existing id
         const string sql = @"
-            INSERT INTO webhook_delivery_sagas
-                (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
-            VALUES
-                (@EventId, @SubscriptionId, @Status, @AttemptCount, @NextAttemptAt, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
-            ON DUPLICATE KEY UPDATE
-                id = LAST_INSERT_ID(id);
-            SELECT LAST_INSERT_ID();
+            WITH upsert AS (
+                INSERT INTO webhook_delivery_sagas
+                    (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
+                VALUES
+                    (@EventId, @SubscriptionId, @Status, @AttemptCount, @NextAttemptAt, NOW(), NOW())
+                ON CONFLICT (event_id, subscription_id)
+                DO UPDATE SET event_id = EXCLUDED.event_id
+                RETURNING id
+            )
+            SELECT id FROM upsert
+            UNION ALL
+            SELECT id FROM webhook_delivery_sagas WHERE event_id = @EventId AND subscription_id = @SubscriptionId
+            LIMIT 1;
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var id = await connection.ExecuteScalarAsync<long>(
@@ -65,7 +70,7 @@ public sealed class MySqlSagaRepository : ISagaRepository
             WHERE id = @Id
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         return await connection.QuerySingleOrDefaultAsync<WebhookDeliverySaga>(
@@ -86,7 +91,7 @@ public sealed class MySqlSagaRepository : ISagaRepository
             LIMIT @Limit
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var results = await connection.QueryAsync<WebhookDeliverySaga>(
@@ -105,12 +110,12 @@ public sealed class MySqlSagaRepository : ISagaRepository
                    next_attempt_at, final_error_code, created_at, updated_at
             FROM webhook_delivery_sagas
             WHERE status = 'PendingRetry'
-              AND next_attempt_at <= UTC_TIMESTAMP(6)
+              AND next_attempt_at <= NOW()
             ORDER BY next_attempt_at ASC
             LIMIT @Limit
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var results = await connection.QueryAsync<WebhookDeliverySaga>(
@@ -136,11 +141,11 @@ public sealed class MySqlSagaRepository : ISagaRepository
                 attempt_count = @AttemptCount,
                 next_attempt_at = @NextAttemptAt,
                 final_error_code = @FinalErrorCode,
-                updated_at = UTC_TIMESTAMP(6)
+                updated_at = NOW()
             WHERE id = @Id
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         await connection.ExecuteAsync(

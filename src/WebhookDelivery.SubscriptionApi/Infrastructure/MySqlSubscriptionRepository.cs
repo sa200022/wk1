@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Dapper;
-using MySqlConnector;
+using Npgsql;
 using WebhookDelivery.Core.Models;
 using WebhookDelivery.Core.Repositories;
 
@@ -23,11 +23,11 @@ public sealed class MySqlSubscriptionRepository : ISubscriptionRepository
     {
         const string sql = @"
             INSERT INTO subscriptions (event_type, callback_url, active, verified, created_at, updated_at)
-            VALUES (@EventType, @CallbackUrl, @Active, @Verified, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6));
-            SELECT LAST_INSERT_ID();
+            VALUES (@EventType, @CallbackUrl, @Active, @Verified, NOW(), NOW())
+            RETURNING id;
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var id = await connection.ExecuteScalarAsync<long>(
@@ -45,7 +45,7 @@ public sealed class MySqlSubscriptionRepository : ISubscriptionRepository
             WHERE id = @Id
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         return await connection.QuerySingleOrDefaultAsync<Subscription>(
@@ -61,7 +61,7 @@ public sealed class MySqlSubscriptionRepository : ISubscriptionRepository
             WHERE event_type = @EventType
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var results = await connection.QueryAsync<Subscription>(
@@ -79,11 +79,11 @@ public sealed class MySqlSubscriptionRepository : ISubscriptionRepository
                 callback_url = @CallbackUrl,
                 active = @Active,
                 verified = @Verified,
-                updated_at = UTC_TIMESTAMP(6)
+                updated_at = NOW()
             WHERE id = @Id
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         await connection.ExecuteAsync(
@@ -99,11 +99,11 @@ public sealed class MySqlSubscriptionRepository : ISubscriptionRepository
             SELECT id, event_type, callback_url, active, verified, created_at, updated_at
             FROM subscriptions
             WHERE event_type = @EventType
-              AND active = 1
-              AND verified = 1
+              AND active = TRUE
+              AND verified = TRUE
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var results = await connection.QueryAsync<Subscription>(

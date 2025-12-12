@@ -3,7 +3,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Dapper;
-using MySqlConnector;
+using Npgsql;
 using Xunit;
 
 namespace WebhookDelivery.IntegrationTests;
@@ -26,11 +26,13 @@ public class IdempotencyTests : TestBase
         var eventId1 = await InsertTestEventAsync(externalEventId, eventType, payload);
 
         // Second insert should fail due to unique constraint or return same ID
-        await using var conn = new MySqlConnection(ConnectionString);
+        await using var conn = new NpgsqlConnection(ConnectionString);
         var sql = @"
             INSERT INTO events (external_event_id, event_type, payload, created_at)
             VALUES (@ExternalEventId, @EventType, @Payload, @CreatedAt)
-            ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)";
+            ON CONFLICT (external_event_id)
+            DO UPDATE SET external_event_id = EXCLUDED.external_event_id
+            RETURNING id";
 
         var eventId2 = await conn.ExecuteScalarAsync<long>(sql, new
         {
@@ -65,13 +67,21 @@ public class IdempotencyTests : TestBase
         // Act: Router processes same (event_id, subscription_id) twice
         var sagaId1 = await InsertTestSagaAsync(eventId, subscriptionId);
 
-        await using var conn = new MySqlConnection(ConnectionString);
+        await using var conn = new NpgsqlConnection(ConnectionString);
         var sql = @"
-            INSERT INTO webhook_delivery_sagas
-                (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
-            VALUES
-                (@EventId, @SubscriptionId, @Status, @AttemptCount, @NextAttemptAt, @CreatedAt, @UpdatedAt)
-            ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)";
+            WITH upsert AS (
+                INSERT INTO webhook_delivery_sagas
+                    (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
+                VALUES
+                    (@EventId, @SubscriptionId, @Status, @AttemptCount, @NextAttemptAt, @CreatedAt, @UpdatedAt)
+                ON CONFLICT (event_id, subscription_id)
+                DO UPDATE SET event_id = EXCLUDED.event_id
+                RETURNING id
+            )
+            SELECT id FROM upsert
+            UNION ALL
+            SELECT id FROM webhook_delivery_sagas WHERE event_id = @EventId AND subscription_id = @SubscriptionId
+            LIMIT 1;";
 
         var sagaId2 = await conn.ExecuteScalarAsync<long>(sql, new
         {
@@ -109,7 +119,7 @@ public class IdempotencyTests : TestBase
         var sagaId = await InsertTestSagaAsync(eventId, subscriptionId, "InProgress", 1);
         var jobId = await InsertTestJobAsync(sagaId, status: "Completed", responseStatus: 200);
 
-        await using var conn = new MySqlConnection(ConnectionString);
+        await using var conn = new NpgsqlConnection(ConnectionString);
 
         // Act: Apply job success twice (simulating duplicate processing)
         var updateSql = @"
@@ -156,7 +166,7 @@ public class IdempotencyTests : TestBase
 
         var sagaId = await InsertTestSagaAsync(eventId, subscriptionId, "InProgress", 1);
 
-        await using var conn = new MySqlConnection(ConnectionString);
+        await using var conn = new NpgsqlConnection(ConnectionString);
 
         // Insert job with expired lease (5 minutes ago)
         var expiredLeaseTime = DateTime.UtcNow.AddMinutes(-5);
@@ -208,7 +218,7 @@ public class IdempotencyTests : TestBase
             responseStatus: 500,
             errorCode: "Internal Server Error");
 
-        await using var conn = new MySqlConnection(ConnectionString);
+        await using var conn = new NpgsqlConnection(ConnectionString);
 
         // Act: Simulate orchestrator processing failure at max retry
         var updateSql = @"
@@ -249,7 +259,7 @@ public class IdempotencyTests : TestBase
 
         var oldSagaId = await InsertTestSagaAsync(eventId, subscriptionId, "DeadLettered", 5);
 
-        await using var conn = new MySqlConnection(ConnectionString);
+        await using var conn = new NpgsqlConnection(ConnectionString);
 
         // Read old saga state before requeue
         var oldSaga = await conn.QuerySingleAsync<dynamic>(
@@ -261,8 +271,8 @@ public class IdempotencyTests : TestBase
             INSERT INTO webhook_delivery_sagas
                 (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
             VALUES
-                (@EventId, @SubscriptionId, 'Pending', 0, @NextAttemptAt, @CreatedAt, @UpdatedAt);
-            SELECT LAST_INSERT_ID();";
+                (@EventId, @SubscriptionId, 'Pending', 0, @NextAttemptAt, @CreatedAt, @UpdatedAt)
+            RETURNING id;";
 
         var newSagaId = await conn.ExecuteScalarAsync<long>(newSagaSql, new
         {

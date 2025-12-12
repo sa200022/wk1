@@ -65,7 +65,7 @@ INSERT INTO webhook_delivery_sagas (...);        -- ❌ 應該失敗
 **安全檢查點**:
 ```sql
 -- 應該成功
-INSERT INTO webhook_delivery_sagas (...) ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);  -- ✅
+INSERT INTO webhook_delivery_sagas (...) ON CONFLICT (event_id, subscription_id) DO UPDATE SET event_id = EXCLUDED.event_id RETURNING id;  -- ✅
 
 -- 應該失敗
 UPDATE webhook_delivery_sagas SET status = 'InProgress' WHERE id = 1;  -- ❌

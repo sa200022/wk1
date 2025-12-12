@@ -18,5 +18,5 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyTitleAttribute("WebhookDelivery.Core")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
 
-// 由 MSBuild WriteCodeFragment 類別產生。
+// ??MSBuild WriteCodeFragment 類別?��???
 

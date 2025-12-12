@@ -2,7 +2,7 @@ using System;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Dapper;
-using MySqlConnector;
+using Npgsql;
 using Xunit;
 
 namespace WebhookDelivery.IntegrationTests;
@@ -28,15 +28,15 @@ public class DeadLetterTests : TestBase
         const int maxRetryLimit = 5;
         var sagaId = await InsertTestSagaAsync(eventId, subscriptionId, "DeadLettered", maxRetryLimit);
 
-        await using var conn = new MySqlConnection(ConnectionString);
+        await using var conn = new NpgsqlConnection(ConnectionString);
 
         // Act: Simulate orchestrator creating dead letter record
         var deadLetterSql = @"
             INSERT INTO dead_letters
                 (saga_id, event_id, subscription_id, final_error_code, payload_snapshot)
             VALUES
-                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @PayloadSnapshot);
-            SELECT LAST_INSERT_ID();";
+                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @PayloadSnapshot)
+            RETURNING id;";
 
         var deadLetterId = await conn.ExecuteScalarAsync<long>(deadLetterSql, new
         {
@@ -75,7 +75,7 @@ public class DeadLetterTests : TestBase
 
         var deadLetteredSagaId = await InsertTestSagaAsync(eventId, subscriptionId, "DeadLettered", 5);
 
-        await using var conn = new MySqlConnection(ConnectionString);
+        await using var conn = new NpgsqlConnection(ConnectionString);
 
         // Insert dead letter record
         await conn.ExecuteAsync(@"
@@ -96,8 +96,8 @@ public class DeadLetterTests : TestBase
             INSERT INTO webhook_delivery_sagas
                 (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
             VALUES
-                (@EventId, @SubscriptionId, 'Pending', 0, @NextAttemptAt, @CreatedAt, @UpdatedAt);
-            SELECT LAST_INSERT_ID();";
+                (@EventId, @SubscriptionId, 'Pending', 0, @NextAttemptAt, @CreatedAt, @UpdatedAt)
+            RETURNING id;";
 
         var newSagaId = await conn.ExecuteScalarAsync<long>(requeueSql, new
         {
@@ -153,7 +153,7 @@ public class DeadLetterTests : TestBase
 
         var sagaId = await InsertTestSagaAsync(eventId, subscriptionId, "DeadLettered", 5);
 
-        await using var conn = new MySqlConnection(ConnectionString);
+        await using var conn = new NpgsqlConnection(ConnectionString);
 
         // Act: Create dead letter with payload snapshot
         await conn.ExecuteAsync(@"
@@ -198,14 +198,14 @@ public class DeadLetterTests : TestBase
 
         var sagaId = await InsertTestSagaAsync(eventId, subscriptionId, "DeadLettered", 5);
 
-        await using var conn = new MySqlConnection(ConnectionString);
+        await using var conn = new NpgsqlConnection(ConnectionString);
 
         var deadLetterId = await conn.ExecuteScalarAsync<long>(@"
             INSERT INTO dead_letters
                 (saga_id, event_id, subscription_id, final_error_code, payload_snapshot)
             VALUES
-                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @PayloadSnapshot);
-            SELECT LAST_INSERT_ID();", new
+                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @PayloadSnapshot)
+            RETURNING id;", new
         {
             SagaId = sagaId,
             EventId = eventId,

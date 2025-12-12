@@ -2,7 +2,7 @@ using System;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Dapper;
-using MySqlConnector;
+using Npgsql;
 using Xunit;
 
 namespace WebhookDelivery.IntegrationTests;
@@ -29,7 +29,7 @@ public class PermissionTests : TestBase
 
         var sagaId = await InsertTestSagaAsync(eventId, subscriptionId, "Completed", 1);
 
-        await using var conn = new MySqlConnection(ConnectionString);
+        await using var conn = new NpgsqlConnection(ConnectionString);
 
         // Act: Attempt to update terminal saga (should fail due to WHERE clause)
         var updateSql = @"
@@ -68,7 +68,7 @@ public class PermissionTests : TestBase
 
         var sagaId = await InsertTestSagaAsync(eventId, subscriptionId, "DeadLettered", 5);
 
-        await using var conn = new MySqlConnection(ConnectionString);
+        await using var conn = new NpgsqlConnection(ConnectionString);
 
         // Act: Attempt to update DeadLettered saga
         var updateSql = @"
@@ -106,16 +106,23 @@ public class PermissionTests : TestBase
             "order.created",
             "https://example.com/webhook");
 
-        await using var conn = new MySqlConnection(ConnectionString);
+        await using var conn = new NpgsqlConnection(ConnectionString);
 
         // Act 1: Router can INSERT saga (with idempotency)
         var insertSql = @"
-            INSERT INTO webhook_delivery_sagas
-                (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
-            VALUES
-                (@EventId, @SubscriptionId, 'Pending', 0, @NextAttemptAt, @CreatedAt, @UpdatedAt)
-            ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
-            SELECT LAST_INSERT_ID();";
+            WITH upsert AS (
+                INSERT INTO webhook_delivery_sagas
+                    (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
+                VALUES
+                    (@EventId, @SubscriptionId, 'Pending', 0, @NextAttemptAt, @CreatedAt, @UpdatedAt)
+                ON CONFLICT (event_id, subscription_id)
+                DO UPDATE SET event_id = EXCLUDED.event_id
+                RETURNING id
+            )
+            SELECT id FROM upsert
+            UNION ALL
+            SELECT id FROM webhook_delivery_sagas WHERE event_id = @EventId AND subscription_id = @SubscriptionId
+            LIMIT 1;";
 
         var sagaId = await conn.ExecuteScalarAsync<long>(insertSql, new
         {
@@ -164,7 +171,7 @@ public class PermissionTests : TestBase
         var sagaId = await InsertTestSagaAsync(eventId, subscriptionId, "InProgress", 1);
         var jobId = await InsertTestJobAsync(sagaId, status: "Pending");
 
-        await using var conn = new MySqlConnection(ConnectionString);
+        await using var conn = new NpgsqlConnection(ConnectionString);
 
         // Act 1: Worker can UPDATE job (this is allowed)
         var updateJobSql = @"
@@ -218,14 +225,15 @@ public class PermissionTests : TestBase
         var eventType = "order.created";
         var payload = JsonDocument.Parse("{\"orderId\": 111}");
 
-        await using var conn = new MySqlConnection(ConnectionString);
+        await using var conn = new NpgsqlConnection(ConnectionString);
 
         // Act 1: Event ingestion can INSERT event (append-only)
         var insertSql = @"
             INSERT INTO events (external_event_id, event_type, payload, created_at)
             VALUES (@ExternalEventId, @EventType, @Payload, @CreatedAt)
-            ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
-            SELECT LAST_INSERT_ID();";
+            ON CONFLICT (external_event_id)
+            DO UPDATE SET external_event_id = EXCLUDED.external_event_id
+            RETURNING id;";
 
         var eventId = await conn.ExecuteScalarAsync<long>(insertSql, new
         {
@@ -272,15 +280,15 @@ public class PermissionTests : TestBase
 
         var deadLetteredSagaId = await InsertTestSagaAsync(eventId, subscriptionId, "DeadLettered", 5);
 
-        await using var conn = new MySqlConnection(ConnectionString);
+        await using var conn = new NpgsqlConnection(ConnectionString);
 
         // Act 1: Dead letter operator can INSERT new saga for requeue
         var insertSql = @"
             INSERT INTO webhook_delivery_sagas
                 (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
             VALUES
-                (@EventId, @SubscriptionId, 'Pending', 0, @NextAttemptAt, @CreatedAt, @UpdatedAt);
-            SELECT LAST_INSERT_ID();";
+                (@EventId, @SubscriptionId, 'Pending', 0, @NextAttemptAt, @CreatedAt, @UpdatedAt)
+            RETURNING id;";
 
         var newSagaId = await conn.ExecuteScalarAsync<long>(insertSql, new
         {
@@ -329,10 +337,10 @@ public class PermissionTests : TestBase
 
         var sagaId = await InsertTestSagaAsync(eventId, subscriptionId, "Pending", 0);
 
-        await using var conn = new MySqlConnection(ConnectionString);
+        await using var conn = new NpgsqlConnection(ConnectionString);
 
         // Act: Only saga_orchestrator role can UPDATE saga state
-        // Pending → InProgress
+        // Pending ??InProgress
         var updateToInProgressSql = @"
             UPDATE webhook_delivery_sagas
             SET status = 'InProgress', updated_at = @UpdatedAt
@@ -346,7 +354,7 @@ public class PermissionTests : TestBase
 
         Assert.Equal(1, rowsAffected1);
 
-        // InProgress → PendingRetry
+        // InProgress ??PendingRetry
         var updateToPendingRetrySql = @"
             UPDATE webhook_delivery_sagas
             SET status = 'PendingRetry',

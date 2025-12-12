@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Dapper;
-using MySqlConnector;
+using Npgsql;
 using WebhookDelivery.Core.Models;
 using WebhookDelivery.Core.Repositories;
 
@@ -32,7 +32,7 @@ public sealed class MySqlJobRepository : IJobRepository
             WHERE id = @Id
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var result = await connection.QuerySingleOrDefaultAsync<dynamic>(
@@ -58,7 +58,7 @@ public sealed class MySqlJobRepository : IJobRepository
             ORDER BY attempt_at DESC
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var results = await connection.QueryAsync<dynamic>(
@@ -81,7 +81,7 @@ public sealed class MySqlJobRepository : IJobRepository
             ORDER BY attempt_at DESC
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var results = await connection.QueryAsync<dynamic>(
@@ -95,19 +95,18 @@ public sealed class MySqlJobRepository : IJobRepository
         WebhookDeliveryJob job,
         CancellationToken cancellationToken = default)
     {
-        // Use INSERT ... ON DUPLICATE KEY UPDATE for idempotency
-        // unique key (saga_id, attempt_at) prevents duplicate job creation
+        // Use ON CONFLICT (saga_id, attempt_at) for idempotency
         const string sql = @"
             INSERT INTO webhook_delivery_jobs
                 (saga_id, status, attempt_at, lease_until)
             VALUES
                 (@SagaId, @Status, @AttemptAt, @LeaseUntil)
-            ON DUPLICATE KEY UPDATE
-                id = LAST_INSERT_ID(id);
-            SELECT LAST_INSERT_ID();
+            ON CONFLICT (saga_id, attempt_at)
+            DO UPDATE SET saga_id = EXCLUDED.saga_id
+            RETURNING id;
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var id = await connection.ExecuteScalarAsync<long>(

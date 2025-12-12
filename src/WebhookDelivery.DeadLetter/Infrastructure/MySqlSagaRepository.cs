@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Dapper;
-using MySqlConnector;
+using Npgsql;
 using WebhookDelivery.Core.Models;
 using WebhookDelivery.Core.Repositories;
 
@@ -31,7 +31,7 @@ public sealed class MySqlSagaRepository : ISagaRepository
             WHERE id = @Id
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var result = await connection.QuerySingleOrDefaultAsync<dynamic>(
@@ -60,18 +60,24 @@ public sealed class MySqlSagaRepository : ISagaRepository
         CancellationToken cancellationToken = default)
     {
         // For requeue: create a brand-new saga with same event/subscription
-        // Use INSERT ... ON DUPLICATE KEY UPDATE for idempotency
+        // Use ON CONFLICT (event_id, subscription_id) for idempotency
         const string sql = @"
-            INSERT INTO webhook_delivery_sagas
-                (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
-            VALUES
-                (@EventId, @SubscriptionId, @Status, @AttemptCount, @NextAttemptAt, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))
-            ON DUPLICATE KEY UPDATE
-                id = LAST_INSERT_ID(id);
-            SELECT LAST_INSERT_ID();
+            WITH upsert AS (
+                INSERT INTO webhook_delivery_sagas
+                    (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
+                VALUES
+                    (@EventId, @SubscriptionId, @Status, @AttemptCount, @NextAttemptAt, NOW(), NOW())
+                ON CONFLICT (event_id, subscription_id)
+                DO UPDATE SET event_id = EXCLUDED.event_id
+                RETURNING id
+            )
+            SELECT id FROM upsert
+            UNION ALL
+            SELECT id FROM webhook_delivery_sagas WHERE event_id = @EventId AND subscription_id = @SubscriptionId
+            LIMIT 1;
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var id = await connection.ExecuteScalarAsync<long>(

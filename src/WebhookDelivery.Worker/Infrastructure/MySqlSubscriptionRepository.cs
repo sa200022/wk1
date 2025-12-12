@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Dapper;
-using MySqlConnector;
+using Npgsql;
 using WebhookDelivery.Core.Models;
 using WebhookDelivery.Core.Repositories;
 
@@ -30,7 +30,7 @@ public sealed class MySqlSubscriptionRepository : ISubscriptionRepository
             WHERE id = @Id
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         return await connection.QuerySingleOrDefaultAsync<Subscription>(

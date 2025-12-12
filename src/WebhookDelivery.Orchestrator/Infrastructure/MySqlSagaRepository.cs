@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Dapper;
-using MySqlConnector;
+using Npgsql;
 using WebhookDelivery.Core.Models;
 using WebhookDelivery.Core.Repositories;
 
@@ -32,7 +32,7 @@ public sealed class MySqlSagaRepository : ISagaRepository
             WHERE id = @Id
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var result = await connection.QuerySingleOrDefaultAsync<dynamic>(
@@ -58,7 +58,7 @@ public sealed class MySqlSagaRepository : ISagaRepository
             LIMIT @Limit
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var results = await connection.QueryAsync<dynamic>(
@@ -77,12 +77,12 @@ public sealed class MySqlSagaRepository : ISagaRepository
                    next_attempt_at, final_error_code, created_at, updated_at
             FROM webhook_delivery_sagas
             WHERE status = 'PendingRetry'
-              AND next_attempt_at <= UTC_TIMESTAMP(6)
+              AND next_attempt_at <= NOW()
             ORDER BY next_attempt_at ASC
             LIMIT @Limit
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var results = await connection.QueryAsync<dynamic>(
@@ -105,7 +105,7 @@ public sealed class MySqlSagaRepository : ISagaRepository
             LIMIT @Limit
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var results = await connection.QueryAsync<dynamic>(
@@ -124,12 +124,12 @@ public sealed class MySqlSagaRepository : ISagaRepository
                 attempt_count = @AttemptCount,
                 next_attempt_at = @NextAttemptAt,
                 final_error_code = @FinalErrorCode,
-                updated_at = UTC_TIMESTAMP(6)
+                updated_at = NOW()
             WHERE id = @Id
               AND status NOT IN ('Completed', 'DeadLettered')
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var rowsAffected = await connection.ExecuteAsync(

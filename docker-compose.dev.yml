@@ -9,25 +9,24 @@
 version: '3.8'
 
 services:
-  # MySQL only for local development
-  mysql:
-    image: mysql:8.0
-    container_name: webhook_delivery_mysql_dev
+  # PostgreSQL only for local development
+  postgres:
+    image: postgres:15
+    container_name: webhook_delivery_postgres_dev
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: test
-      MYSQL_DATABASE: webhook_delivery
-      MYSQL_CHARACTER_SET_SERVER: utf8mb4
-      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+      POSTGRES_PASSWORD: test
+      POSTGRES_USER: postgres
+      POSTGRES_DB: webhook_delivery
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - mysql_dev_data:/var/lib/mysql
+      - postgres_dev_data:/var/lib/postgresql/data
       - ./src/WebhookDelivery.Database/Scripts:/docker-entrypoint-initdb.d:ro
     networks:
       - webhook_dev_network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ptest"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -39,5 +38,5 @@ networks:
     name: webhook_delivery_dev_network
 
 volumes:
-  mysql_dev_data:
-    name: webhook_delivery_mysql_dev_data
+  postgres_dev_data:
+    name: webhook_delivery_postgres_dev_data

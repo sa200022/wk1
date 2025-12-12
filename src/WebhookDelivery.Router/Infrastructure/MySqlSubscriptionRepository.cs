@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Dapper;
-using MySqlConnector;
+using Npgsql;
 using WebhookDelivery.Core.Models;
 using WebhookDelivery.Core.Repositories;
 
@@ -31,7 +31,7 @@ public sealed class MySqlSubscriptionRepository : ISubscriptionRepository
             WHERE id = @Id
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         return await connection.QuerySingleOrDefaultAsync<Subscription>(
@@ -47,12 +47,12 @@ public sealed class MySqlSubscriptionRepository : ISubscriptionRepository
             SELECT id, event_type, callback_url, active, verified, created_at, updated_at
             FROM subscriptions
             WHERE event_type = @EventType
-              AND active = 1
-              AND verified = 1
+              AND active = TRUE
+              AND verified = TRUE
             ORDER BY id ASC
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var results = await connection.QueryAsync<Subscription>(

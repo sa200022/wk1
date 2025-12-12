@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Dapper;
-using MySqlConnector;
+using Npgsql;
 using WebhookDelivery.Core.Models;
 using WebhookDelivery.Core.Repositories;
 
@@ -27,11 +27,11 @@ public sealed class MySqlJobRepository : IJobRepository
             INSERT INTO webhook_delivery_jobs
                 (saga_id, status, attempt_at, lease_until)
             VALUES
-                (@SagaId, @Status, @AttemptAt, @LeaseUntil);
-            SELECT LAST_INSERT_ID();
+                (@SagaId, @Status, @AttemptAt, @LeaseUntil)
+            RETURNING id;
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var id = await connection.ExecuteScalarAsync<long>(
@@ -60,7 +60,7 @@ public sealed class MySqlJobRepository : IJobRepository
             WHERE id = @Id
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         return await connection.QuerySingleOrDefaultAsync<WebhookDeliveryJob>(
@@ -80,7 +80,7 @@ public sealed class MySqlJobRepository : IJobRepository
               AND status IN ('Pending', 'Leased')
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var results = await connection.QueryAsync<WebhookDeliveryJob>(
@@ -103,7 +103,7 @@ public sealed class MySqlJobRepository : IJobRepository
             ORDER BY attempt_at DESC
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var results = await connection.QueryAsync<WebhookDeliveryJob>(
@@ -124,7 +124,7 @@ public sealed class MySqlJobRepository : IJobRepository
             WHERE id = @Id
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         await connection.ExecuteAsync(
@@ -157,7 +157,7 @@ public sealed class MySqlJobRepository : IJobRepository
             FOR UPDATE SKIP LOCKED
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var results = await connection.QueryAsync<WebhookDeliveryJob>(

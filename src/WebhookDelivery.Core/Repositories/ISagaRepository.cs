@@ -11,7 +11,7 @@ namespace WebhookDelivery.Core.Repositories;
 public interface ISagaRepository
 {
     /// <summary>
-    /// Creates a new saga idempotently using INSERT ... ON DUPLICATE KEY UPDATE
+    /// Creates a new saga idempotently using INSERT ... ON CONFLICT
     /// Enforced by unique constraint (event_id, subscription_id)
     /// </summary>
     Task<WebhookDeliverySaga> CreateIdempotentAsync(

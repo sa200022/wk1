@@ -2,7 +2,7 @@ using System;
 using System.Threading.Tasks;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
-using MySqlConnector;
+using Npgsql;
 using Xunit;
 
 namespace WebhookDelivery.IntegrationTests;
@@ -26,17 +26,23 @@ public abstract class TestBase : IAsyncLifetime
         // Use test database
         DatabaseName = $"webhook_delivery_test_{Guid.NewGuid():N}";
         var baseConnectionString = config.GetConnectionString("TestDatabase")
-            ?? "Server=localhost;Port=3306;Uid=root;Pwd=test;CharSet=utf8mb4;";
+            ?? "Host=localhost;Port=5432;Username=postgres;Password=test;Database=postgres";
+
+        var baseBuilder = new NpgsqlConnectionStringBuilder(baseConnectionString);
 
         // Create test database
-        await using var connection = new MySqlConnection(baseConnectionString);
+        await using var connection = new NpgsqlConnection(baseBuilder.ToString());
         await connection.OpenAsync();
         await using var cmd = connection.CreateCommand();
-        cmd.CommandText = $"CREATE DATABASE `{DatabaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
+        cmd.CommandText = $"CREATE DATABASE \"{DatabaseName}\" WITH TEMPLATE = template1;";
         await cmd.ExecuteNonQueryAsync();
 
         // Update connection string to use test database
-        ConnectionString = $"{baseConnectionString}Database={DatabaseName};";
+        var testBuilder = new NpgsqlConnectionStringBuilder(baseBuilder.ConnectionString)
+        {
+            Database = DatabaseName
+        };
+        ConnectionString = testBuilder.ToString();
 
         // Run schema migration
         await RunSchemaMigrationAsync();
@@ -49,11 +55,11 @@ public abstract class TestBase : IAsyncLifetime
         {
             try
             {
-                var baseConnectionString = ConnectionString.Split("Database=")[0];
-                await using var connection = new MySqlConnection(baseConnectionString);
+                var baseBuilder = new NpgsqlConnectionStringBuilder(ConnectionString) { Database = "postgres" };
+                await using var connection = new NpgsqlConnection(baseBuilder.ToString());
                 await connection.OpenAsync();
                 await using var cmd = connection.CreateCommand();
-                cmd.CommandText = $"DROP DATABASE IF EXISTS `{DatabaseName}`;";
+                cmd.CommandText = $"DROP DATABASE IF EXISTS \"{DatabaseName}\";";
                 await cmd.ExecuteNonQueryAsync();
             }
             catch
@@ -71,29 +77,13 @@ public abstract class TestBase : IAsyncLifetime
         {
             var schemaSql = await System.IO.File.ReadAllTextAsync(schemaPath);
 
-            await using var connection = new MySqlConnection(ConnectionString);
+            await using var connection = new NpgsqlConnection(ConnectionString);
             await connection.OpenAsync();
 
-            // Split by delimiter and execute each statement
-            var statements = schemaSql.Split(new[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var statement in statements)
-            {
-                var trimmed = statement.Trim();
-                if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("--"))
-                    continue;
-
-                await using var cmd = connection.CreateCommand();
-                cmd.CommandText = trimmed + ";";
-                try
-                {
-                    await cmd.ExecuteNonQueryAsync();
-                }
-                catch (Exception ex)
-                {
-                    // Log but continue for comments/non-critical statements
-                    Console.WriteLine($"Schema execution warning: {ex.Message}");
-                }
-            }
+            // Execute entire script (supports DO blocks)
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = schemaSql;
+            await cmd.ExecuteNonQueryAsync();
         }
     }
 
@@ -103,13 +93,13 @@ public abstract class TestBase : IAsyncLifetime
         string? externalEventId = null,
         DateTime? createdAt = null)
     {
-        await using var connection = new MySqlConnection(ConnectionString);
+        await using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync();
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = @"
             INSERT INTO events (external_event_id, event_type, payload, created_at)
-            VALUES (@ExternalEventId, @EventType, @Payload, @CreatedAt);
-            SELECT LAST_INSERT_ID();
+            VALUES (@ExternalEventId, @EventType, @Payload, @CreatedAt)
+            RETURNING id;
         ";
         cmd.Parameters.AddWithValue("@ExternalEventId", (object?)externalEventId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@EventType", eventType);
@@ -127,13 +117,13 @@ public abstract class TestBase : IAsyncLifetime
         bool active = true,
         bool verified = true)
     {
-        await using var connection = new MySqlConnection(ConnectionString);
+        await using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync();
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = @"
             INSERT INTO subscriptions (event_type, callback_url, active, verified, created_at, updated_at)
-            VALUES (@EventType, @CallbackUrl, @Active, @Verified, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6));
-            SELECT LAST_INSERT_ID();
+            VALUES (@EventType, @CallbackUrl, @Active, @Verified, NOW(), NOW())
+            RETURNING id;
         ";
         cmd.Parameters.AddWithValue("@EventType", eventType);
         cmd.Parameters.AddWithValue("@CallbackUrl", callbackUrl);
@@ -148,15 +138,15 @@ public abstract class TestBase : IAsyncLifetime
         string status = "Pending",
         int attemptCount = 0)
     {
-        await using var connection = new MySqlConnection(ConnectionString);
+        await using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync();
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = @"
             INSERT INTO webhook_delivery_sagas
                 (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
             VALUES
-                (@EventId, @SubscriptionId, @Status, @AttemptCount, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), UTC_TIMESTAMP(6));
-            SELECT LAST_INSERT_ID();
+                (@EventId, @SubscriptionId, @Status, @AttemptCount, NOW(), NOW(), NOW())
+            RETURNING id;
         ";
         cmd.Parameters.AddWithValue("@EventId", eventId);
         cmd.Parameters.AddWithValue("@SubscriptionId", subscriptionId);
@@ -173,15 +163,15 @@ public abstract class TestBase : IAsyncLifetime
         int? responseStatus = null,
         string? errorCode = null)
     {
-        await using var connection = new MySqlConnection(ConnectionString);
+        await using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync();
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = @"
             INSERT INTO webhook_delivery_jobs
                 (saga_id, status, lease_until, attempt_at, response_status, error_code)
             VALUES
-                (@SagaId, @Status, @LeaseUntil, @AttemptAt, @ResponseStatus, @ErrorCode);
-            SELECT LAST_INSERT_ID();
+                (@SagaId, @Status, @LeaseUntil, @AttemptAt, @ResponseStatus, @ErrorCode)
+            RETURNING id;
         ";
         cmd.Parameters.AddWithValue("@SagaId", sagaId);
         cmd.Parameters.AddWithValue("@Status", status);

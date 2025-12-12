@@ -12,26 +12,25 @@ version: '3.8'
 
 services:
   # ==========================================================================
-  # MySQL Database
+  # PostgreSQL Database
   # ==========================================================================
-  mysql:
-    image: mysql:8.0
-    container_name: webhook_delivery_mysql
+  postgres:
+    image: postgres:15
+    container_name: webhook_delivery_postgres
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password_change_me}
-      MYSQL_DATABASE: webhook_delivery
-      MYSQL_CHARACTER_SET_SERVER: utf8mb4
-      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_password_change_me}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB: webhook_delivery
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
       - ./src/WebhookDelivery.Database/Scripts:/docker-entrypoint-initdb.d:ro
     networks:
       - webhook_network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -47,11 +46,11 @@ services:
     container_name: webhook_delivery_event_ingestion
     restart: unless-stopped
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=webhook_delivery;Uid=event_ingest_writer;Pwd=${DB_PASSWORD_EVENT_INGEST:-dev_password_event_ingest};CharSet=utf8mb4;
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=event_ingest_writer;Pwd=${DB_PASSWORD_EVENT_INGEST:-dev_password_event_ingest};
       - Logging__LogLevel__Default=Information
       - Logging__LogLevel__WebhookDelivery=Debug
     networks:
@@ -72,12 +71,12 @@ services:
     container_name: webhook_delivery_subscription_api
     restart: unless-stopped
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5001
-      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=webhook_delivery;Uid=subscription_admin;Pwd=${DB_PASSWORD_SUBSCRIPTION_ADMIN:-dev_password_subscription};CharSet=utf8mb4;
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=subscription_admin;Pwd=${DB_PASSWORD_SUBSCRIPTION_ADMIN:-dev_password_subscription};
       - Logging__LogLevel__Default=Information
       - Logging__LogLevel__WebhookDelivery=Debug
     ports:
@@ -106,11 +105,11 @@ services:
     container_name: webhook_delivery_router
     restart: unless-stopped
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=webhook_delivery;Uid=router_worker;Pwd=${DB_PASSWORD_ROUTER_WORKER:-dev_password_router};CharSet=utf8mb4;
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=router_worker;Pwd=${DB_PASSWORD_ROUTER_WORKER:-dev_password_router};
       - RoutingWorkerSettings__PollingIntervalSeconds=5
       - RoutingWorkerSettings__BatchSize=100
       - Logging__LogLevel__Default=Information
@@ -133,11 +132,11 @@ services:
     container_name: webhook_delivery_orchestrator
     restart: unless-stopped
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=webhook_delivery;Uid=saga_orchestrator;Pwd=${DB_PASSWORD_SAGA_ORCHESTRATOR:-dev_password_orchestrator};CharSet=utf8mb4;
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=saga_orchestrator;Pwd=${DB_PASSWORD_SAGA_ORCHESTRATOR:-dev_password_orchestrator};
       - SagaOrchestratorSettings__PollingIntervalSeconds=3
       - SagaOrchestratorSettings__MaxRetryLimit=5
       - SagaOrchestratorSettings__BaseDelaySeconds=30
@@ -161,11 +160,11 @@ services:
     container_name: webhook_delivery_worker
     restart: unless-stopped
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=webhook_delivery;Uid=job_worker;Pwd=${DB_PASSWORD_JOB_WORKER:-dev_password_worker};CharSet=utf8mb4;
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=job_worker;Pwd=${DB_PASSWORD_JOB_WORKER:-dev_password_worker};
       - JobWorkerSettings__PollingIntervalSeconds=2
       - JobWorkerSettings__BatchSize=10
       - JobWorkerSettings__LeaseDurationSeconds=60
@@ -191,12 +190,12 @@ services:
     container_name: webhook_delivery_deadletter_api
     restart: unless-stopped
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5003
-      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=webhook_delivery;Uid=dead_letter_operator;Pwd=${DB_PASSWORD_DEAD_LETTER_OPERATOR:-dev_password_deadletter};CharSet=utf8mb4;
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=dead_letter_operator;Pwd=${DB_PASSWORD_DEAD_LETTER_OPERATOR:-dev_password_deadletter};
       - Logging__LogLevel__Default=Information
       - Logging__LogLevel__WebhookDelivery=Debug
     ports:
@@ -227,5 +226,5 @@ networks:
 # Volumes
 # ==========================================================================
 volumes:
-  mysql_data:
-    name: webhook_delivery_mysql_data
+  postgres_data:
+    name: webhook_delivery_postgres_data

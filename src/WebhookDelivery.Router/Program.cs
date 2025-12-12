@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using MySql.Data.MySqlClient;
+using Npgsql;
 using WebhookDelivery.Core.Repositories;
 using WebhookDelivery.Router.Infrastructure;
 using WebhookDelivery.Router.Services;
@@ -13,12 +13,12 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
-// Register MySQL connection factory
+// Register PostgreSQL connection factory
 builder.Services.AddScoped(_ =>
 {
     var connectionString = builder.Configuration.GetSection("Database:ConnectionString").Value
         ?? throw new InvalidOperationException("Database connection string is not configured");
-    return new MySqlConnection(connectionString);
+    return new NpgsqlConnection(connectionString);
 });
 
 // Register repositories

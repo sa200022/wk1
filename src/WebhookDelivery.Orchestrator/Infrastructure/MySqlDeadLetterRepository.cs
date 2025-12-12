@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Dapper;
-using MySqlConnector;
+using Npgsql;
 using WebhookDelivery.Core.Models;
 using WebhookDelivery.Core.Repositories;
 
@@ -28,11 +28,11 @@ public sealed class MySqlDeadLetterRepository : IDeadLetterRepository
             INSERT INTO dead_letters
                 (saga_id, event_id, subscription_id, final_error_code, failed_at, payload_snapshot)
             VALUES
-                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @FailedAt, @PayloadSnapshot);
-            SELECT LAST_INSERT_ID();
+                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @FailedAt, @PayloadSnapshot)
+            RETURNING id;
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         // Serialize payload snapshot to JSON
@@ -65,7 +65,7 @@ public sealed class MySqlDeadLetterRepository : IDeadLetterRepository
             WHERE id = @Id
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         var result = await connection.QuerySingleOrDefaultAsync<dynamic>(

@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Dapper;
-using MySqlConnector;
+using Npgsql;
 using WebhookDelivery.Core.Models;
 using WebhookDelivery.Core.Repositories;
 
@@ -26,11 +26,11 @@ public sealed class MySqlEventRepository : IEventRepository
     {
         const string sql = @"
             INSERT INTO events (event_type, payload, created_at)
-            VALUES (@EventType, @Payload, @CreatedAt);
-            SELECT LAST_INSERT_ID();
+            VALUES (@EventType, @Payload, @CreatedAt)
+            RETURNING id;
         ";
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         // Serialize payload to JSON string
