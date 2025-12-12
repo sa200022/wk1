@@ -68,7 +68,7 @@ public sealed class PostgresJobRepository : IJobRepository
         return results.Select(MapToJob).ToList();
     }
 
-    public async Task<IReadOnlyList<WebhookDeliveryJob>> GetTerminalJobsBySagaIdAsync(
+    public async Task<IReadOnlyList<WebhookDeliveryJob>> GetTerminalBySagaIdAsync(
         long sagaId,
         CancellationToken cancellationToken = default)
     {
@@ -132,13 +132,27 @@ public sealed class PostgresJobRepository : IJobRepository
         throw new InvalidOperationException("Saga Orchestrator does not update jobs - workers handle this");
     }
 
-    public Task<IReadOnlyList<WebhookDeliveryJob>> AcquireJobsAsync(
+    public async Task<IReadOnlyList<WebhookDeliveryJob>> GetPendingJobsAsync(
         int limit,
-        TimeSpan leaseDuration,
         CancellationToken cancellationToken = default)
     {
-        // Orchestrator doesn't acquire jobs - workers do
-        throw new InvalidOperationException("Saga Orchestrator does not acquire jobs - workers handle this");
+        const string sql = @"
+            SELECT id, saga_id, status, lease_until, attempt_at,
+                   response_status, error_code
+            FROM webhook_delivery_jobs
+            WHERE status = 'Pending'
+            ORDER BY attempt_at ASC
+            LIMIT @Limit
+        ";
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var results = await connection.QueryAsync<dynamic>(
+            new CommandDefinition(sql, new { Limit = limit }, cancellationToken: cancellationToken)
+        );
+
+        return results.Select(MapToJob).ToList();
     }
 
     public Task<int> ResetExpiredLeasesAsync(CancellationToken cancellationToken = default)

@@ -23,6 +23,53 @@ public sealed class PostgresSagaRepository : ISagaRepository
         _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
     }
 
+    public async Task<WebhookDeliverySaga> CreateIdempotentAsync(
+        WebhookDeliverySaga saga,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = @"
+            INSERT INTO webhook_delivery_sagas
+                (event_id, subscription_id, status, attempt_count, next_attempt_at, final_error_code, created_at, updated_at)
+            VALUES
+                (@EventId, @SubscriptionId, @Status::saga_status_enum, @AttemptCount, @NextAttemptAt, @FinalErrorCode, @CreatedAt, @UpdatedAt)
+            ON CONFLICT (event_id, subscription_id)
+            WHERE status <> 'DeadLettered'
+            DO NOTHING
+            RETURNING id;
+        ";
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var id = await connection.ExecuteScalarAsync<long?>(
+            new CommandDefinition(
+                sql,
+                new
+                {
+                    saga.EventId,
+                    saga.SubscriptionId,
+                    Status = saga.Status.ToString(),
+                    saga.AttemptCount,
+                    saga.NextAttemptAt,
+                    saga.FinalErrorCode,
+                    saga.CreatedAt,
+                    saga.UpdatedAt
+                },
+                cancellationToken: cancellationToken
+            )
+        );
+
+        // If id is null, saga already exists (idempotent operation)
+        if (id.HasValue)
+        {
+            return saga with { Id = id.Value };
+        }
+
+        // Return existing saga
+        var existing = await GetByIdAsync(saga.Id, cancellationToken);
+        return existing ?? saga;
+    }
+
     public async Task<WebhookDeliverySaga?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
     {
         const string sql = @"

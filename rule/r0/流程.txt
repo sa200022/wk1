@@ -22,10 +22,10 @@ webhook_delivery_jobs：唯一鍵 (saga_id, attempt_at)，以及 (status, lease_
 
 unique key＝唯一鍵 / index＝索引 / status＝狀態
 
-Enforce InnoDB engine and UTC timestamps in schema.
-在 schema 中強制使用 InnoDB 引擎與 UTC 時戳。
+Enforce PostgreSQL TIMESTAMPTZ (UTC) and row-level locking in schema.
+在 schema 中強制使用 PostgreSQL TIMESTAMPTZ (UTC) 與 row-level locking。
 
-enforce＝強制 / engine＝引擎 / timestamp＝時間戳
+enforce＝強制 / TIMESTAMPTZ＝帶時區的時間戳 / row-level locking＝行級鎖定
 
 Phase 2 – Implement event ingestion service
 階段二 – 實作事件寫入服務

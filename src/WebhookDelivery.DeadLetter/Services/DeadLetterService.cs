@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using WebhookDelivery.Core.Models;
 using WebhookDelivery.Core.Repositories;
+using DeadLetterModel = WebhookDelivery.Core.Models.DeadLetter;
 
 namespace WebhookDelivery.DeadLetter.Services;
 
@@ -62,7 +63,7 @@ public sealed class DeadLetterService
         var @event = await _eventRepository.GetByIdAsync(saga.EventId, cancellationToken)
             ?? throw new InvalidOperationException($"Event {saga.EventId} not found");
 
-        var deadLetter = DeadLetter.FromSaga(saga, @event.Payload);
+        var deadLetter = DeadLetterModel.FromSaga(saga, @event.Payload);
 
         await _deadLetterRepository.CreateAsync(deadLetter, cancellationToken);
 

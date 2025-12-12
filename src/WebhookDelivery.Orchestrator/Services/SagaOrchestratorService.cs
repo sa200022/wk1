@@ -174,7 +174,7 @@ public sealed class SagaOrchestratorService : BackgroundService
             try
             {
                 // Get terminal jobs for this saga
-                var terminalJobs = await _jobRepository.GetTerminalJobsBySagaIdAsync(saga.Id, cancellationToken);
+                var terminalJobs = await _jobRepository.GetTerminalBySagaIdAsync(saga.Id, cancellationToken);
 
                 if (!terminalJobs.Any())
                 {
@@ -236,7 +236,7 @@ public sealed class SagaOrchestratorService : BackgroundService
         }
 
         // Get all terminal jobs for this saga to check if this job was already processed
-        var terminalJobs = await _jobRepository.GetTerminalJobsBySagaIdAsync(sagaId, cancellationToken);
+        var terminalJobs = await _jobRepository.GetTerminalBySagaIdAsync(sagaId, cancellationToken);
         var latestTerminalJob = terminalJobs.OrderByDescending(j => j.AttemptAt).FirstOrDefault();
 
         if (latestTerminalJob != null && latestTerminalJob.Id != jobId)
@@ -296,7 +296,7 @@ public sealed class SagaOrchestratorService : BackgroundService
         }
 
         // Get all terminal jobs for this saga to check if this job was already processed
-        var terminalJobs = await _jobRepository.GetTerminalJobsBySagaIdAsync(sagaId, cancellationToken);
+        var terminalJobs = await _jobRepository.GetTerminalBySagaIdAsync(sagaId, cancellationToken);
         var latestTerminalJob = terminalJobs.OrderByDescending(j => j.AttemptAt).FirstOrDefault();
 
         if (latestTerminalJob != null && latestTerminalJob.Id != jobId)

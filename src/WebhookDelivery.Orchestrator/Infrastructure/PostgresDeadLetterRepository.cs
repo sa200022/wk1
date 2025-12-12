@@ -92,4 +92,13 @@ public sealed class PostgresDeadLetterRepository : IDeadLetterRepository
         // Orchestrator doesn't need this method
         throw new NotImplementedException("Orchestrator does not query dead letters by saga ID");
     }
+
+    public Task<IReadOnlyList<DeadLetter>> GetAllAsync(
+        int limit,
+        int offset,
+        CancellationToken cancellationToken = default)
+    {
+        // Orchestrator doesn't need this method
+        throw new NotImplementedException("Orchestrator does not query all dead letters");
+    }
 }

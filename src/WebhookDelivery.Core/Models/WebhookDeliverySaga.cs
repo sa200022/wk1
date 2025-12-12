@@ -5,7 +5,7 @@ namespace WebhookDelivery.Core.Models;
 /// <summary>
 /// Webhook delivery saga - orchestration layer for delivery state
 /// </summary>
-public sealed class WebhookDeliverySaga
+public sealed record WebhookDeliverySaga
 {
     public long Id { get; init; }
 

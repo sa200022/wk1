@@ -17,9 +17,9 @@ public sealed class Event
     public JsonDocument Payload { get; init; } = null!;
 
     /// <summary>
-    /// Private constructor to enforce immutability
+    /// Constructor for creating events (used by repositories)
     /// </summary>
-    private Event() { }
+    public Event() { }
 
     /// <summary>
     /// Factory method for creating new events

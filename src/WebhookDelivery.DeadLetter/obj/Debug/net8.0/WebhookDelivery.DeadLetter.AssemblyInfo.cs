@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("WebhookDelivery.DeadLetter")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+25a0ae50aa2f27f780aa025dc85fe5bfa2586078")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fc34e8a728d4950b337dd3bc6875a69e697d51a1")]
 [assembly: System.Reflection.AssemblyProductAttribute("WebhookDelivery.DeadLetter")]
 [assembly: System.Reflection.AssemblyTitleAttribute("WebhookDelivery.DeadLetter")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

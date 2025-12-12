@@ -39,7 +39,28 @@ public sealed class PostgresSubscriptionRepository : ISubscriptionRepository
         );
     }
 
-    public async Task<IReadOnlyList<Subscription>> GetActiveByEventTypeAsync(
+    public async Task<IReadOnlyList<Subscription>> GetByEventTypeAsync(
+        string eventType,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = @"
+            SELECT id, event_type, callback_url, active, verified, created_at, updated_at
+            FROM subscriptions
+            WHERE event_type = @EventType
+            ORDER BY id ASC
+        ";
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var results = await connection.QueryAsync<Subscription>(
+            new CommandDefinition(sql, new { EventType = eventType }, cancellationToken: cancellationToken)
+        );
+
+        return results.ToList();
+    }
+
+    public async Task<IReadOnlyList<Subscription>> GetActiveAndVerifiedAsync(
         string eventType,
         CancellationToken cancellationToken = default)
     {
@@ -68,15 +89,9 @@ public sealed class PostgresSubscriptionRepository : ISubscriptionRepository
         throw new InvalidOperationException("Router worker does not have permission to create subscriptions");
     }
 
-    public Task UpdateAsync(Subscription subscription, CancellationToken cancellationToken = default)
+    public Task<Subscription> UpdateAsync(Subscription subscription, CancellationToken cancellationToken = default)
     {
         // Router should NOT be able to update subscriptions
         throw new InvalidOperationException("Router worker does not have permission to update subscriptions");
-    }
-
-    public Task<IReadOnlyList<Subscription>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        // Router doesn't need to get all subscriptions
-        throw new InvalidOperationException("Router worker does not need to query all subscriptions");
     }
 }

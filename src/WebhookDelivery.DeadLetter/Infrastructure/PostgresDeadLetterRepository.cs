@@ -8,6 +8,7 @@ using Dapper;
 using Npgsql;
 using WebhookDelivery.Core.Models;
 using WebhookDelivery.Core.Repositories;
+using DeadLetterModel = WebhookDelivery.Core.Models.DeadLetter;
 
 namespace WebhookDelivery.DeadLetter.Infrastructure;
 
@@ -20,8 +21,8 @@ public sealed class PostgresDeadLetterRepository : IDeadLetterRepository
         _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
     }
 
-    public async Task<DeadLetter> CreateAsync(
-        DeadLetter deadLetter,
+    public async Task<DeadLetterModel> CreateAsync(
+        DeadLetterModel deadLetter,
         CancellationToken cancellationToken = default)
     {
         const string sql = @"
@@ -56,7 +57,7 @@ public sealed class PostgresDeadLetterRepository : IDeadLetterRepository
         return deadLetter with { Id = id };
     }
 
-    public async Task<DeadLetter?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
+    public async Task<DeadLetterModel?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
     {
         const string sql = @"
             SELECT id, saga_id, event_id, subscription_id, final_error_code, failed_at, payload_snapshot
@@ -67,12 +68,12 @@ public sealed class PostgresDeadLetterRepository : IDeadLetterRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        return await connection.QuerySingleOrDefaultAsync<DeadLetter>(
+        return await connection.QuerySingleOrDefaultAsync<DeadLetterModel>(
             new CommandDefinition(sql, new { Id = id }, cancellationToken: cancellationToken)
         );
     }
 
-    public async Task<DeadLetter?> GetBySagaIdAsync(long sagaId, CancellationToken cancellationToken = default)
+    public async Task<DeadLetterModel?> GetBySagaIdAsync(long sagaId, CancellationToken cancellationToken = default)
     {
         const string sql = @"
             SELECT id, saga_id, event_id, subscription_id, final_error_code, failed_at, payload_snapshot
@@ -83,12 +84,12 @@ public sealed class PostgresDeadLetterRepository : IDeadLetterRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        return await connection.QuerySingleOrDefaultAsync<DeadLetter>(
+        return await connection.QuerySingleOrDefaultAsync<DeadLetterModel>(
             new CommandDefinition(sql, new { SagaId = sagaId }, cancellationToken: cancellationToken)
         );
     }
 
-    public async Task<IReadOnlyList<DeadLetter>> GetAllAsync(
+    public async Task<IReadOnlyList<DeadLetterModel>> GetAllAsync(
         int limit,
         int offset,
         CancellationToken cancellationToken = default)
@@ -103,7 +104,7 @@ public sealed class PostgresDeadLetterRepository : IDeadLetterRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        var results = await connection.QueryAsync<DeadLetter>(
+        var results = await connection.QueryAsync<DeadLetterModel>(
             new CommandDefinition(
                 sql,
                 new { Limit = limit, Offset = offset },

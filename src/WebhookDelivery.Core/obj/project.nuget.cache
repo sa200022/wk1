@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "EHatmyGoBXs=",
+  "dgSpecHash": "cL9l93tu7Ls=",
   "success": true,
-  "projectFilePath": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj",
+  "projectFilePath": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\DogbearZ\\.nuget\\packages\\system.text.json\\8.0.5\\system.text.json.8.0.5.nupkg.sha512"
   ],

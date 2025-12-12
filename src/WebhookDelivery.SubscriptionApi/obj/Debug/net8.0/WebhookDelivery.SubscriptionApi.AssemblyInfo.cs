@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("WebhookDelivery.SubscriptionApi")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a9c7d059e27007d568b8b0f5e0c0bf9ad6871cf2")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fc34e8a728d4950b337dd3bc6875a69e697d51a1")]
 [assembly: System.Reflection.AssemblyProductAttribute("WebhookDelivery.SubscriptionApi")]
 [assembly: System.Reflection.AssemblyTitleAttribute("WebhookDelivery.SubscriptionApi")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

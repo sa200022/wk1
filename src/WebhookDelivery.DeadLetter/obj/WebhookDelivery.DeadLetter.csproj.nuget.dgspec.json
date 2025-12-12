@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.DeadLetter\\WebhookDelivery.DeadLetter.csproj": {}
+    "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.DeadLetter\\WebhookDelivery.DeadLetter.csproj": {}
   },
   "projects": {
-    "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj": {
+    "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj",
+        "projectUniqueName": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj",
         "projectName": "WebhookDelivery.Core",
-        "projectPath": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj",
+        "projectPath": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj",
         "packagesPath": "C:\\Users\\DogbearZ\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\obj\\",
+        "outputPath": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\DogbearZ\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -69,14 +69,14 @@
         }
       }
     },
-    "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.DeadLetter\\WebhookDelivery.DeadLetter.csproj": {
+    "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.DeadLetter\\WebhookDelivery.DeadLetter.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.DeadLetter\\WebhookDelivery.DeadLetter.csproj",
+        "projectUniqueName": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.DeadLetter\\WebhookDelivery.DeadLetter.csproj",
         "projectName": "WebhookDelivery.DeadLetter",
-        "projectPath": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.DeadLetter\\WebhookDelivery.DeadLetter.csproj",
+        "projectPath": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.DeadLetter\\WebhookDelivery.DeadLetter.csproj",
         "packagesPath": "C:\\Users\\DogbearZ\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.DeadLetter\\obj\\",
+        "outputPath": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.DeadLetter\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\DogbearZ\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -91,8 +91,8 @@
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj": {
-                "projectPath": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj"
+              "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj": {
+                "projectPath": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj"
               }
             }
           }
@@ -117,13 +117,13 @@
               "target": "Package",
               "version": "[2.1.35, )"
             },
-            "Microsoft.Extensions.Logging": {
-              "target": "Package",
-              "version": "[8.0.0, )"
-            },
             "Npgsql": {
               "target": "Package",
               "version": "[8.0.3, )"
+            },
+            "Swashbuckle.AspNetCore": {
+              "target": "Package",
+              "version": "[6.5.0, )"
             }
           },
           "imports": [
@@ -138,6 +138,9 @@
           "assetTargetFallback": true,
           "warn": true,
           "frameworkReferences": {
+            "Microsoft.AspNetCore.App": {
+              "privateAssets": "none"
+            },
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
             }

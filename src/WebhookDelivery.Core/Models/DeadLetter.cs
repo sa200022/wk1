@@ -6,7 +6,7 @@ namespace WebhookDelivery.Core.Models;
 /// <summary>
 /// Dead letter entry for permanently failed delivery sagas
 /// </summary>
-public sealed class DeadLetter
+public sealed record DeadLetter
 {
     public long Id { get; init; }
 

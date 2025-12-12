@@ -21,11 +21,14 @@ builder.Services.AddScoped(_ =>
     return new NpgsqlConnection(connectionString);
 });
 
-// Register repositories
-builder.Services.AddScoped<IEventRepository, PostgresEventRepository>();
+// Register repositories (need connection string from configuration)
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Database connection string is not configured");
+builder.Services.AddScoped<IEventRepository>(_ => new PostgresEventRepository(connectionString));
 
 // Register services
-builder.Services.AddHostedService<EventIngestionService>();
+builder.Services.AddScoped<EventIngestionService>();
+builder.Services.AddHostedService<EventIngestionWorker>();
 
 var host = builder.Build();
 

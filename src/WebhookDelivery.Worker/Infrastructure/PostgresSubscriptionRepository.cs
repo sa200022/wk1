@@ -38,12 +38,20 @@ public sealed class PostgresSubscriptionRepository : ISubscriptionRepository
         );
     }
 
-    public Task<IReadOnlyList<Subscription>> GetActiveByEventTypeAsync(
+    public Task<IReadOnlyList<Subscription>> GetByEventTypeAsync(
         string eventType,
         CancellationToken cancellationToken = default)
     {
         // Worker doesn't need this method
         throw new InvalidOperationException("Worker does not query subscriptions by event type");
+    }
+
+    public Task<IReadOnlyList<Subscription>> GetActiveAndVerifiedAsync(
+        string eventType,
+        CancellationToken cancellationToken = default)
+    {
+        // Worker doesn't need this method
+        throw new InvalidOperationException("Worker does not query active subscriptions");
     }
 
     public Task<Subscription> CreateAsync(Subscription subscription, CancellationToken cancellationToken = default)
@@ -52,15 +60,9 @@ public sealed class PostgresSubscriptionRepository : ISubscriptionRepository
         throw new InvalidOperationException("Worker does not have permission to create subscriptions");
     }
 
-    public Task UpdateAsync(Subscription subscription, CancellationToken cancellationToken = default)
+    public Task<Subscription> UpdateAsync(Subscription subscription, CancellationToken cancellationToken = default)
     {
         // Worker cannot update subscriptions
         throw new InvalidOperationException("Worker does not have permission to update subscriptions");
-    }
-
-    public Task<IReadOnlyList<Subscription>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        // Worker doesn't need this method
-        throw new InvalidOperationException("Worker does not need to query all subscriptions");
     }
 }

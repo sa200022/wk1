@@ -5,7 +5,7 @@ English
 
 Application Runtime: .NET (C#)
 
-Database: MySQL 8.x (InnoDB required)
+Database: PostgreSQL 15+ (Row-level locking required)
 
 Time Standard: UTC for all timestamps
 
@@ -15,7 +15,7 @@ Serialization: JSON, RFC8259 compliant
 
 應用程式執行階段：.NET (C#)
 
-資料庫：MySQL 8.x（強制使用 InnoDB）
+資料庫：PostgreSQL 15+（強制使用 Row-level locking）
 
 時間標準：所有 timestamp 必須使用 UTC
 

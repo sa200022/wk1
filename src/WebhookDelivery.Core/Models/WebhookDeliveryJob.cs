@@ -5,7 +5,7 @@ namespace WebhookDelivery.Core.Models;
 /// <summary>
 /// Individual atomic delivery attempt
 /// </summary>
-public sealed class WebhookDeliveryJob
+public sealed record WebhookDeliveryJob
 {
     public long Id { get; init; }
 

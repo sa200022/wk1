@@ -1781,11 +1781,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Orchestrator\\WebhookDelivery.Orchestrator.csproj",
+      "projectUniqueName": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Orchestrator\\WebhookDelivery.Orchestrator.csproj",
       "projectName": "WebhookDelivery.Orchestrator",
-      "projectPath": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Orchestrator\\WebhookDelivery.Orchestrator.csproj",
+      "projectPath": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Orchestrator\\WebhookDelivery.Orchestrator.csproj",
       "packagesPath": "C:\\Users\\DogbearZ\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Orchestrator\\obj\\",
+      "outputPath": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Orchestrator\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\DogbearZ\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -1800,8 +1800,8 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj": {
-              "projectPath": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj"
+            "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj": {
+              "projectPath": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj"
             }
           }
         }

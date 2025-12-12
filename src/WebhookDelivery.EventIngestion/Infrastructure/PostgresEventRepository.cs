@@ -26,15 +26,15 @@ public sealed class PostgresEventRepository : IEventRepository
     {
         const string sql = @"
             INSERT INTO events (event_type, payload, created_at)
-            VALUES (@EventType, @Payload, @CreatedAt)
+            VALUES (@EventType, @Payload::jsonb, @CreatedAt)
             RETURNING id;
         ";
 
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        // Serialize payload to JSON string
-        var payloadJson = JsonSerializer.Serialize(@event.Payload);
+        // Get JSON string from JsonDocument
+        var payloadJson = @event.Payload.RootElement.GetRawText();
 
         var id = await connection.ExecuteScalarAsync<long>(
             new CommandDefinition(
@@ -49,7 +49,44 @@ public sealed class PostgresEventRepository : IEventRepository
             )
         );
 
-        // Return immutable event with assigned ID
-        return @event with { Id = id };
+        // Create new instance with assigned ID using factory pattern
+        var newEvent = Event.Create(@event.EventType, @event.Payload);
+        return new Event
+        {
+            Id = id,
+            EventType = newEvent.EventType,
+            Payload = newEvent.Payload,
+            CreatedAt = newEvent.CreatedAt
+        };
+    }
+
+    public async Task<Event?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
+    {
+        const string sql = @"
+            SELECT id, event_type, payload::text as payload, created_at
+            FROM events
+            WHERE id = @Id;
+        ";
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var row = await connection.QuerySingleOrDefaultAsync<dynamic>(
+            new CommandDefinition(sql, new { Id = id }, cancellationToken: cancellationToken)
+        );
+
+        if (row == null)
+            return null;
+
+        // Parse JSON string to JsonDocument
+        var payloadDoc = JsonDocument.Parse((string)row.payload);
+
+        return new Event
+        {
+            Id = row.id,
+            EventType = row.event_type,
+            Payload = payloadDoc,
+            CreatedAt = row.created_at
+        };
     }
 }

@@ -301,7 +301,7 @@ Job 失敗 → attempt_count++ → 超過 max_retry_limit
 ### 部署架構
 ```
 docker-compose up -d
-├── postgres:15 (webhook_delivery_postgres)
+├── PostgreSQL 15 (webhook_delivery_postgres)
 │   ├── Port: 5432
 │   ├── Volume: postgres_data
 │   └── Init Scripts: /docker-entrypoint-initdb.d
@@ -329,7 +329,7 @@ docker-compose up -d
 
 ### 使用方式
 
-#### 本地開發（只啟動 MySQL）
+#### 本地開發（只啟動 PostgreSQL）
 ```bash
 docker-compose -f docker-compose.dev.yml up -d
 # 然後在 IDE 中運行各服務
