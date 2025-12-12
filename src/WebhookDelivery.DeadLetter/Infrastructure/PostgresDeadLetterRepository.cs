@@ -11,11 +11,11 @@ using WebhookDelivery.Core.Repositories;
 
 namespace WebhookDelivery.DeadLetter.Infrastructure;
 
-public sealed class MySqlDeadLetterRepository : IDeadLetterRepository
+public sealed class PostgresDeadLetterRepository : IDeadLetterRepository
 {
     private readonly string _connectionString;
 
-    public MySqlDeadLetterRepository(string connectionString)
+    public PostgresDeadLetterRepository(string connectionString)
     {
         _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
     }

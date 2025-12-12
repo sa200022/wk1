@@ -10,11 +10,11 @@ using WebhookDelivery.Core.Repositories;
 
 namespace WebhookDelivery.SubscriptionApi.Infrastructure;
 
-public sealed class MySqlSubscriptionRepository : ISubscriptionRepository
+public sealed class PostgresSubscriptionRepository : ISubscriptionRepository
 {
     private readonly string _connectionString;
 
-    public MySqlSubscriptionRepository(string connectionString)
+    public PostgresSubscriptionRepository(string connectionString)
     {
         _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
     }

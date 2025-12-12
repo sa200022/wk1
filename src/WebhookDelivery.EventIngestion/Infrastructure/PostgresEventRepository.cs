@@ -10,14 +10,14 @@ using WebhookDelivery.Core.Repositories;
 namespace WebhookDelivery.EventIngestion.Infrastructure;
 
 /// <summary>
-/// MySQL implementation of event repository
+/// PostgreSQL implementation of event repository
 /// Uses event_ingest_writer role with INSERT-only permissions
 /// </summary>
-public sealed class MySqlEventRepository : IEventRepository
+public sealed class PostgresEventRepository : IEventRepository
 {
     private readonly string _connectionString;
 
-    public MySqlEventRepository(string connectionString)
+    public PostgresEventRepository(string connectionString)
     {
         _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
     }

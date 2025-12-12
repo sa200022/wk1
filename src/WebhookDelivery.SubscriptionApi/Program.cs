@@ -14,7 +14,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Register MySQL connection factory
+// Register PostgreSQL connection factory
 builder.Services.AddScoped(_ =>
 {
     var connectionString = builder.Configuration.GetSection("Database:ConnectionString").Value
@@ -23,7 +23,7 @@ builder.Services.AddScoped(_ =>
 });
 
 // Register repositories
-builder.Services.AddScoped<ISubscriptionRepository, MySqlSubscriptionRepository>();
+builder.Services.AddScoped<ISubscriptionRepository, PostgresSubscriptionRepository>();
 
 // Register services
 builder.Services.AddScoped<SubscriptionService>();

@@ -13,7 +13,7 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
-// Register MySQL connection factory
+// Register PostgreSQL connection factory
 builder.Services.AddScoped(_ =>
 {
     var connectionString = builder.Configuration.GetSection("Database:ConnectionString").Value
@@ -22,7 +22,7 @@ builder.Services.AddScoped(_ =>
 });
 
 // Register repositories
-builder.Services.AddScoped<IEventRepository, MySqlEventRepository>();
+builder.Services.AddScoped<IEventRepository, PostgresEventRepository>();
 
 // Register services
 builder.Services.AddHostedService<EventIngestionService>();

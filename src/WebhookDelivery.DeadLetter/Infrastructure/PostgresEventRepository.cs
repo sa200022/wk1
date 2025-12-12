@@ -10,14 +10,14 @@ using WebhookDelivery.Core.Repositories;
 namespace WebhookDelivery.DeadLetter.Infrastructure;
 
 /// <summary>
-/// MySQL Event Repository for Dead Letter Service (READ-ONLY)
+/// PostgreSQL Event Repository for Dead Letter Service (READ-ONLY)
 /// Dead Letter only needs to read event payload for dead letter records
 /// </summary>
-public sealed class MySqlEventRepository : IEventRepository
+public sealed class PostgresEventRepository : IEventRepository
 {
     private readonly string _connectionString;
 
-    public MySqlEventRepository(string connectionString)
+    public PostgresEventRepository(string connectionString)
     {
         _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
     }

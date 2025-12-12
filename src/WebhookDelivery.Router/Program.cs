@@ -22,9 +22,9 @@ builder.Services.AddScoped(_ =>
 });
 
 // Register repositories
-builder.Services.AddScoped<IEventRepository, MySqlEventRepository>();
-builder.Services.AddScoped<ISubscriptionRepository, MySqlSubscriptionRepository>();
-builder.Services.AddScoped<ISagaRepository, MySqlSagaRepository>();
+builder.Services.AddScoped<IEventRepository, PostgresEventRepository>();
+builder.Services.AddScoped<ISubscriptionRepository, PostgresSubscriptionRepository>();
+builder.Services.AddScoped<ISagaRepository, PostgresSagaRepository>();
 
 // Register services
 builder.Services.AddHostedService<RoutingWorkerService>();

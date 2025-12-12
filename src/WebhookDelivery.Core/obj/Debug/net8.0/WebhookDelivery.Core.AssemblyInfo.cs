@@ -13,10 +13,10 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("WebhookDelivery.Core")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6f6bfb77f3dfc85afffc78c1a9515604d50c541b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+25a0ae50aa2f27f780aa025dc85fe5bfa2586078")]
 [assembly: System.Reflection.AssemblyProductAttribute("WebhookDelivery.Core")]
 [assembly: System.Reflection.AssemblyTitleAttribute("WebhookDelivery.Core")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
 
-// ??MSBuild WriteCodeFragment 類別?��???
+// 由 MSBuild WriteCodeFragment 類別產生。
 

@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,14 +10,14 @@ using WebhookDelivery.Core.Repositories;
 namespace WebhookDelivery.Orchestrator.Infrastructure;
 
 /// <summary>
-/// MySQL Event Repository for Saga Orchestrator (READ-ONLY)
-/// Orchestrator only needs to read event payload for dead letter snapshots
+/// PostgreSQL Event Repository for Saga Orchestrator (READ-ONLY)
+/// Used to load event payload snapshots
 /// </summary>
-public sealed class MySqlEventRepository : IEventRepository
+public sealed class PostgresEventRepository : IEventRepository
 {
     private readonly string _connectionString;
 
-    public MySqlEventRepository(string connectionString)
+    public PostgresEventRepository(string connectionString)
     {
         _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
     }
@@ -46,13 +45,13 @@ public sealed class MySqlEventRepository : IEventRepository
             Id = result.id,
             EventType = result.event_type,
             CreatedAt = result.created_at,
-            Payload = JsonSerializer.Deserialize<Dictionary<string, object>>(result.payload)
+            Payload = JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<string, object>>(result.payload)
         };
     }
 
     public Task<Event> AppendAsync(Event @event, CancellationToken cancellationToken = default)
     {
-        // Orchestrator cannot insert events
-        throw new InvalidOperationException("Saga Orchestrator does not have permission to insert events");
+        // Orchestrator is read-only on events
+        throw new InvalidOperationException("Saga Orchestrator does not insert events");
     }
 }

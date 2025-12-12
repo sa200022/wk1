@@ -13,7 +13,7 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
-// Register MySQL connection factory
+// Register PostgreSQL connection factory
 builder.Services.AddScoped(_ =>
 {
     var connectionString = builder.Configuration.GetSection("Database:ConnectionString").Value
@@ -29,10 +29,10 @@ builder.Services.AddHttpClient("WebhookClient")
     });
 
 // Register repositories
-builder.Services.AddScoped<IJobRepository, MySqlJobRepository>();
-builder.Services.AddScoped<IEventRepository, MySqlEventRepository>();
-builder.Services.AddScoped<ISubscriptionRepository, MySqlSubscriptionRepository>();
-builder.Services.AddScoped<ISagaRepository, MySqlSagaRepository>();
+builder.Services.AddScoped<IJobRepository, PostgresJobRepository>();
+builder.Services.AddScoped<IEventRepository, PostgresEventRepository>();
+builder.Services.AddScoped<ISubscriptionRepository, PostgresSubscriptionRepository>();
+builder.Services.AddScoped<ISagaRepository, PostgresSagaRepository>();
 
 // Register worker services
 builder.Services.AddHostedService<JobWorkerService>();

@@ -26,7 +26,7 @@ public abstract class TestBase : IAsyncLifetime
         // Use test database
         DatabaseName = $"webhook_delivery_test_{Guid.NewGuid():N}";
         var baseConnectionString = config.GetConnectionString("TestDatabase")
-            ?? "Host=localhost;Port=5432;Username=postgres;Password=test;Database=postgres";
+            ?? "Host=localhost;Port=5432;Username=postgres;Password=5512355123k;Database=postgres";
 
         var baseBuilder = new NpgsqlConnectionStringBuilder(baseConnectionString);
 

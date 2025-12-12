@@ -13,7 +13,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Register MySQL connection factory
+// Register PostgreSQL connection factory
 builder.Services.AddScoped(_ =>
 {
     var connectionString = builder.Configuration.GetSection("Database:ConnectionString").Value
@@ -22,9 +22,9 @@ builder.Services.AddScoped(_ =>
 });
 
 // Register repositories
-builder.Services.AddScoped<IDeadLetterRepository, MySqlDeadLetterRepository>();
-builder.Services.AddScoped<ISagaRepository, MySqlSagaRepository>();
-builder.Services.AddScoped<IEventRepository, MySqlEventRepository>();
+builder.Services.AddScoped<IDeadLetterRepository, PostgresDeadLetterRepository>();
+builder.Services.AddScoped<ISagaRepository, PostgresSagaRepository>();
+builder.Services.AddScoped<IEventRepository, PostgresEventRepository>();
 
 // Register services
 builder.Services.AddScoped<DeadLetterService>();

@@ -10,14 +10,14 @@ using WebhookDelivery.Core.Repositories;
 namespace WebhookDelivery.Worker.Infrastructure;
 
 /// <summary>
-/// MySQL Subscription Repository for Worker (READ-ONLY)
+/// PostgreSQL Subscription Repository for Worker (READ-ONLY)
 /// Worker only needs to read subscription callback_url for delivery
 /// </summary>
-public sealed class MySqlSubscriptionRepository : ISubscriptionRepository
+public sealed class PostgresSubscriptionRepository : ISubscriptionRepository
 {
     private readonly string _connectionString;
 
-    public MySqlSubscriptionRepository(string connectionString)
+    public PostgresSubscriptionRepository(string connectionString)
     {
         _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
     }

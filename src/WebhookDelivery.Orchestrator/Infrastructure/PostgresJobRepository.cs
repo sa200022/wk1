@@ -8,26 +8,101 @@ using Npgsql;
 using WebhookDelivery.Core.Models;
 using WebhookDelivery.Core.Repositories;
 
-namespace WebhookDelivery.Worker.Infrastructure;
+namespace WebhookDelivery.Orchestrator.Infrastructure;
 
-public sealed class MySqlJobRepository : IJobRepository
+/// <summary>
+/// PostgreSQL Job Repository for Saga Orchestrator
+/// Orchestrator creates jobs and reads their terminal results
+/// </summary>
+public sealed class PostgresJobRepository : IJobRepository
 {
     private readonly string _connectionString;
 
-    public MySqlJobRepository(string connectionString)
+    public PostgresJobRepository(string connectionString)
     {
         _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
+    }
+
+    public async Task<WebhookDeliveryJob?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
+    {
+        const string sql = @"
+            SELECT id, saga_id, status, lease_until, attempt_at,
+                   response_status, error_code
+            FROM webhook_delivery_jobs
+            WHERE id = @Id
+        ";
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var result = await connection.QuerySingleOrDefaultAsync<dynamic>(
+            new CommandDefinition(sql, new { Id = id }, cancellationToken: cancellationToken)
+        );
+
+        if (result == null)
+            return null;
+
+        return MapToJob(result);
+    }
+
+    public async Task<IReadOnlyList<WebhookDeliveryJob>> GetActiveBySagaIdAsync(
+        long sagaId,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = @"
+            SELECT id, saga_id, status, lease_until, attempt_at,
+                   response_status, error_code
+            FROM webhook_delivery_jobs
+            WHERE saga_id = @SagaId
+              AND status IN ('Pending', 'Leased')
+            ORDER BY attempt_at DESC
+        ";
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var results = await connection.QueryAsync<dynamic>(
+            new CommandDefinition(sql, new { SagaId = sagaId }, cancellationToken: cancellationToken)
+        );
+
+        return results.Select(MapToJob).ToList();
+    }
+
+    public async Task<IReadOnlyList<WebhookDeliveryJob>> GetTerminalJobsBySagaIdAsync(
+        long sagaId,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = @"
+            SELECT id, saga_id, status, lease_until, attempt_at,
+                   response_status, error_code
+            FROM webhook_delivery_jobs
+            WHERE saga_id = @SagaId
+              AND status IN ('Completed', 'Failed')
+            ORDER BY attempt_at DESC
+        ";
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var results = await connection.QueryAsync<dynamic>(
+            new CommandDefinition(sql, new { SagaId = sagaId }, cancellationToken: cancellationToken)
+        );
+
+        return results.Select(MapToJob).ToList();
     }
 
     public async Task<WebhookDeliveryJob> CreateAsync(
         WebhookDeliveryJob job,
         CancellationToken cancellationToken = default)
     {
+        // Use ON CONFLICT (saga_id, attempt_at) for idempotency
         const string sql = @"
             INSERT INTO webhook_delivery_jobs
                 (saga_id, status, attempt_at, lease_until)
             VALUES
                 (@SagaId, @Status, @AttemptAt, @LeaseUntil)
+            ON CONFLICT (saga_id, attempt_at)
+            DO UPDATE SET saga_id = EXCLUDED.saga_id
             RETURNING id;
         ";
 
@@ -51,119 +126,38 @@ public sealed class MySqlJobRepository : IJobRepository
         return job with { Id = id };
     }
 
-    public async Task<WebhookDeliveryJob?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
-    {
-        const string sql = @"
-            SELECT id, saga_id, status, lease_until, attempt_at,
-                   response_status, error_code
-            FROM webhook_delivery_jobs
-            WHERE id = @Id
-        ";
-
-        await using var connection = new NpgsqlConnection(_connectionString);
-        await connection.OpenAsync(cancellationToken);
-
-        return await connection.QuerySingleOrDefaultAsync<WebhookDeliveryJob>(
-            new CommandDefinition(sql, new { Id = id }, cancellationToken: cancellationToken)
-        );
-    }
-
-    public async Task<IReadOnlyList<WebhookDeliveryJob>> GetActiveBySagaIdAsync(
-        long sagaId,
-        CancellationToken cancellationToken = default)
-    {
-        const string sql = @"
-            SELECT id, saga_id, status, lease_until, attempt_at,
-                   response_status, error_code
-            FROM webhook_delivery_jobs
-            WHERE saga_id = @SagaId
-              AND status IN ('Pending', 'Leased')
-        ";
-
-        await using var connection = new NpgsqlConnection(_connectionString);
-        await connection.OpenAsync(cancellationToken);
-
-        var results = await connection.QueryAsync<WebhookDeliveryJob>(
-            new CommandDefinition(sql, new { SagaId = sagaId }, cancellationToken: cancellationToken)
-        );
-
-        return results.ToList();
-    }
-
-    public async Task<IReadOnlyList<WebhookDeliveryJob>> GetTerminalBySagaIdAsync(
-        long sagaId,
-        CancellationToken cancellationToken = default)
-    {
-        const string sql = @"
-            SELECT id, saga_id, status, lease_until, attempt_at,
-                   response_status, error_code
-            FROM webhook_delivery_jobs
-            WHERE saga_id = @SagaId
-              AND status IN ('Completed', 'Failed')
-            ORDER BY attempt_at DESC
-        ";
-
-        await using var connection = new NpgsqlConnection(_connectionString);
-        await connection.OpenAsync(cancellationToken);
-
-        var results = await connection.QueryAsync<WebhookDeliveryJob>(
-            new CommandDefinition(sql, new { SagaId = sagaId }, cancellationToken: cancellationToken)
-        );
-
-        return results.ToList();
-    }
-
     public async Task UpdateAsync(WebhookDeliveryJob job, CancellationToken cancellationToken = default)
     {
-        const string sql = @"
-            UPDATE webhook_delivery_jobs
-            SET status = @Status,
-                lease_until = @LeaseUntil,
-                response_status = @ResponseStatus,
-                error_code = @ErrorCode
-            WHERE id = @Id
-        ";
-
-        await using var connection = new NpgsqlConnection(_connectionString);
-        await connection.OpenAsync(cancellationToken);
-
-        await connection.ExecuteAsync(
-            new CommandDefinition(
-                sql,
-                new
-                {
-                    job.Id,
-                    Status = job.Status.ToString(),
-                    job.LeaseUntil,
-                    job.ResponseStatus,
-                    job.ErrorCode
-                },
-                cancellationToken: cancellationToken
-            )
-        );
+        // Orchestrator doesn't update jobs - workers do
+        throw new InvalidOperationException("Saga Orchestrator does not update jobs - workers handle this");
     }
 
-    public async Task<IReadOnlyList<WebhookDeliveryJob>> GetPendingJobsAsync(
+    public Task<IReadOnlyList<WebhookDeliveryJob>> AcquireJobsAsync(
         int limit,
+        TimeSpan leaseDuration,
         CancellationToken cancellationToken = default)
     {
-        const string sql = @"
-            SELECT id, saga_id, status, lease_until, attempt_at,
-                   response_status, error_code
-            FROM webhook_delivery_jobs
-            WHERE status = 'Pending'
-            ORDER BY attempt_at ASC
-            LIMIT @Limit
-            FOR UPDATE SKIP LOCKED
-        ";
+        // Orchestrator doesn't acquire jobs - workers do
+        throw new InvalidOperationException("Saga Orchestrator does not acquire jobs - workers handle this");
+    }
 
-        await using var connection = new NpgsqlConnection(_connectionString);
-        await connection.OpenAsync(cancellationToken);
+    public Task<int> ResetExpiredLeasesAsync(CancellationToken cancellationToken = default)
+    {
+        // Orchestrator doesn't reset leases - lease cleaner does
+        throw new InvalidOperationException("Saga Orchestrator does not reset leases - lease cleaner handles this");
+    }
 
-        var results = await connection.QueryAsync<WebhookDeliveryJob>(
-            new CommandDefinition(sql, new { Limit = limit }, cancellationToken: cancellationToken)
-        );
-
-        return results.ToList();
+    private static WebhookDeliveryJob MapToJob(dynamic row)
+    {
+        return new WebhookDeliveryJob
+        {
+            Id = row.id,
+            SagaId = row.saga_id,
+            Status = Enum.Parse<JobStatus>(row.status),
+            LeaseUntil = row.lease_until,
+            AttemptAt = row.attempt_at,
+            ResponseStatus = row.response_status,
+            ErrorCode = row.error_code
+        };
     }
 }

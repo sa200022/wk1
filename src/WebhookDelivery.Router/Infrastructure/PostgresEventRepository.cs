@@ -12,14 +12,14 @@ using WebhookDelivery.Core.Repositories;
 namespace WebhookDelivery.Router.Infrastructure;
 
 /// <summary>
-/// MySQL Event Repository for Router Worker (READ-ONLY)
+/// PostgreSQL Event Repository for Router Worker (READ-ONLY)
 /// Router only needs to read events to create sagas
 /// </summary>
-public sealed class MySqlEventRepository : IEventRepository
+public sealed class PostgresEventRepository : IEventRepository
 {
     private readonly string _connectionString;
 
-    public MySqlEventRepository(string connectionString)
+    public PostgresEventRepository(string connectionString)
     {
         _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
     }

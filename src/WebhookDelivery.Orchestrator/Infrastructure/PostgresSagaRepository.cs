@@ -11,14 +11,14 @@ using WebhookDelivery.Core.Repositories;
 namespace WebhookDelivery.Orchestrator.Infrastructure;
 
 /// <summary>
-/// MySQL Saga Repository for Saga Orchestrator
+/// PostgreSQL Saga Repository for Saga Orchestrator
 /// This is the ONLY component allowed to update saga status
 /// </summary>
-public sealed class MySqlSagaRepository : ISagaRepository
+public sealed class PostgresSagaRepository : ISagaRepository
 {
     private readonly string _connectionString;
 
-    public MySqlSagaRepository(string connectionString)
+    public PostgresSagaRepository(string connectionString)
     {
         _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
     }
@@ -117,7 +117,6 @@ public sealed class MySqlSagaRepository : ISagaRepository
 
     public async Task UpdateAsync(WebhookDeliverySaga saga, CancellationToken cancellationToken = default)
     {
-        // Terminal state protection: do not allow updates to Completed or DeadLettered sagas
         const string sql = @"
             UPDATE webhook_delivery_sagas
             SET status = @Status,
@@ -126,13 +125,12 @@ public sealed class MySqlSagaRepository : ISagaRepository
                 final_error_code = @FinalErrorCode,
                 updated_at = NOW()
             WHERE id = @Id
-              AND status NOT IN ('Completed', 'DeadLettered')
         ";
 
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        var rowsAffected = await connection.ExecuteAsync(
+        await connection.ExecuteAsync(
             new CommandDefinition(
                 sql,
                 new
@@ -146,25 +144,6 @@ public sealed class MySqlSagaRepository : ISagaRepository
                 cancellationToken: cancellationToken
             )
         );
-
-        if (rowsAffected == 0)
-        {
-            // Either saga doesn't exist or is in terminal state
-            var existing = await GetByIdAsync(saga.Id, cancellationToken);
-            if (existing != null && existing.IsTerminal())
-            {
-                throw new InvalidOperationException(
-                    $"Cannot update saga {saga.Id} because it is in terminal state {existing.Status}");
-            }
-        }
-    }
-
-    public async Task<WebhookDeliverySaga> CreateIdempotentAsync(
-        WebhookDeliverySaga saga,
-        CancellationToken cancellationToken = default)
-    {
-        // Orchestrator should not create sagas - that's Router's job
-        throw new InvalidOperationException("Saga Orchestrator does not create sagas - use Router worker");
     }
 
     private static WebhookDeliverySaga MapToSaga(dynamic row)

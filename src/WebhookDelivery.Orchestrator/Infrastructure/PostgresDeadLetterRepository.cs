@@ -10,14 +10,14 @@ using WebhookDelivery.Core.Repositories;
 namespace WebhookDelivery.Orchestrator.Infrastructure;
 
 /// <summary>
-/// MySQL Dead Letter Repository for Saga Orchestrator
+/// PostgreSQL Dead Letter Repository for Saga Orchestrator
 /// Orchestrator creates dead letter entries when sagas are dead-lettered
 /// </summary>
-public sealed class MySqlDeadLetterRepository : IDeadLetterRepository
+public sealed class PostgresDeadLetterRepository : IDeadLetterRepository
 {
     private readonly string _connectionString;
 
-    public MySqlDeadLetterRepository(string connectionString)
+    public PostgresDeadLetterRepository(string connectionString)
     {
         _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
     }
@@ -83,7 +83,7 @@ public sealed class MySqlDeadLetterRepository : IDeadLetterRepository
             SubscriptionId = result.subscription_id,
             FinalErrorCode = result.final_error_code,
             FailedAt = result.failed_at,
-            PayloadSnapshot = JsonSerializer.Deserialize<Dictionary<string, object>>(result.payload_snapshot)
+            PayloadSnapshot = JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<string, object>>(result.payload_snapshot)
         };
     }
 

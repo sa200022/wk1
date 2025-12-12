@@ -10,11 +10,11 @@ using WebhookDelivery.Core.Repositories;
 
 namespace WebhookDelivery.Router.Infrastructure;
 
-public sealed class MySqlSagaRepository : ISagaRepository
+public sealed class PostgresSagaRepository : ISagaRepository
 {
     private readonly string _connectionString;
 
-    public MySqlSagaRepository(string connectionString)
+    public PostgresSagaRepository(string connectionString)
     {
         _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
     }
