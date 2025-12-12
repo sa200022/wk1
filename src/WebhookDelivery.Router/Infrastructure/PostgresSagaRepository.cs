@@ -30,7 +30,7 @@ public sealed class PostgresSagaRepository : ISagaRepository
                     (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
                 VALUES
                     (@EventId, @SubscriptionId, @Status, @AttemptCount, @NextAttemptAt, NOW(), NOW())
-                ON CONFLICT (event_id, subscription_id)
+                ON CONFLICT (event_id, subscription_id) WHERE status <> 'DeadLettered'
                 DO UPDATE SET event_id = EXCLUDED.event_id
                 RETURNING id
             )

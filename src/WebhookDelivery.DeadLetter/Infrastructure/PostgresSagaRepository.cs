@@ -60,14 +60,14 @@ public sealed class PostgresSagaRepository : ISagaRepository
         CancellationToken cancellationToken = default)
     {
         // For requeue: create a brand-new saga with same event/subscription
-        // Use ON CONFLICT (event_id, subscription_id) for idempotency
+        // Use ON CONFLICT against active saga index for idempotency
         const string sql = @"
             WITH upsert AS (
                 INSERT INTO webhook_delivery_sagas
                     (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
                 VALUES
                     (@EventId, @SubscriptionId, @Status, @AttemptCount, @NextAttemptAt, NOW(), NOW())
-                ON CONFLICT (event_id, subscription_id)
+                ON CONFLICT (event_id, subscription_id) WHERE status <> 'DeadLettered'
                 DO UPDATE SET event_id = EXCLUDED.event_id
                 RETURNING id
             )

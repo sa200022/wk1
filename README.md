@@ -102,7 +102,7 @@ Event → Routing → Saga Orchestrator → Job Worker → HTTP Delivery
 ## 執行環境
 
 - **Runtime**: .NET 8.0 (C#)
-- **Database**: MySQL 8.x (InnoDB)
+- **Database**: PostgreSQL 15
 - **Time Standard**: UTC
 - **Serialization**: JSON (RFC8259)
 

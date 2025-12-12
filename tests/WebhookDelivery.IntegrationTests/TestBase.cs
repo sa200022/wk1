@@ -2,7 +2,9 @@ using System;
 using System.Threading.Tasks;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
+using Dapper;
 using Npgsql;
+using NpgsqlTypes;
 using Xunit;
 
 namespace WebhookDelivery.IntegrationTests;
@@ -71,19 +73,42 @@ public abstract class TestBase : IAsyncLifetime
 
     private async Task RunSchemaMigrationAsync()
     {
-        // Read and execute schema migration
-        var schemaPath = "../../../src/WebhookDelivery.Database/Migrations/001_InitialSchema.sql";
-        if (System.IO.File.Exists(schemaPath))
+        // Locate schema file relative to test bin folder
+        var baseDir = AppContext.BaseDirectory;
+        var schemaPath = Path.GetFullPath(
+            Path.Combine(baseDir, "..", "..", "..", "..", "..", "src", "WebhookDelivery.Database", "Migrations", "001_InitialSchema.sql"));
+
+        if (!System.IO.File.Exists(schemaPath))
+            throw new InvalidOperationException($"Schema file not found at {schemaPath}");
+
+        var schemaSql = await System.IO.File.ReadAllTextAsync(schemaPath);
+
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+
+        // Execute entire script (supports multiple statements)
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = schemaSql;
+        try
         {
-            var schemaSql = await System.IO.File.ReadAllTextAsync(schemaPath);
-
-            await using var connection = new NpgsqlConnection(ConnectionString);
-            await connection.OpenAsync();
-
-            // Execute entire script (supports DO blocks)
-            await using var cmd = connection.CreateCommand();
-            cmd.CommandText = schemaSql;
             await cmd.ExecuteNonQueryAsync();
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to apply schema migration from {schemaPath}: {ex.Message}", ex);
+        }
+
+        // Verify tables exist
+        const string verifySql = @"
+            SELECT COUNT(*) FROM information_schema.tables
+            WHERE table_schema = 'public'
+              AND table_name IN ('events','subscriptions','webhook_delivery_sagas','webhook_delivery_jobs','dead_letters');
+        ";
+
+        var count = await connection.ExecuteScalarAsync<int>(verifySql);
+        if (count < 5)
+        {
+            throw new InvalidOperationException("Schema migration did not create all required tables (events/subscriptions/sagas/jobs/dead_letters).");
         }
     }
 
@@ -103,7 +128,7 @@ public abstract class TestBase : IAsyncLifetime
         ";
         cmd.Parameters.AddWithValue("@ExternalEventId", (object?)externalEventId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@EventType", eventType);
-        cmd.Parameters.AddWithValue("@Payload", payload);
+        cmd.Parameters.Add("@Payload", NpgsqlDbType.Jsonb).Value = payload;
         cmd.Parameters.AddWithValue("@CreatedAt", createdAt ?? DateTime.UtcNow);
         return Convert.ToInt64(await cmd.ExecuteScalarAsync());
     }
@@ -145,7 +170,7 @@ public abstract class TestBase : IAsyncLifetime
             INSERT INTO webhook_delivery_sagas
                 (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
             VALUES
-                (@EventId, @SubscriptionId, @Status, @AttemptCount, NOW(), NOW(), NOW())
+                (@EventId, @SubscriptionId, @Status::saga_status_enum, @AttemptCount, NOW(), NOW(), NOW())
             RETURNING id;
         ";
         cmd.Parameters.AddWithValue("@EventId", eventId);
@@ -170,7 +195,7 @@ public abstract class TestBase : IAsyncLifetime
             INSERT INTO webhook_delivery_jobs
                 (saga_id, status, lease_until, attempt_at, response_status, error_code)
             VALUES
-                (@SagaId, @Status, @LeaseUntil, @AttemptAt, @ResponseStatus, @ErrorCode)
+                (@SagaId, @Status::job_status_enum, @LeaseUntil, @AttemptAt, @ResponseStatus, @ErrorCode)
             RETURNING id;
         ";
         cmd.Parameters.AddWithValue("@SagaId", sagaId);

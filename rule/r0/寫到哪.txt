@@ -1,123 +1,123 @@
-﻿✓ Phase 1: 資料庫 schema (001_InitialSchema.sql, 002_DatabaseRoles.sql)
-✓ Phase 2: 事件寫入服務 (EventIngestionService, MySqlEventRepository)
-✓ Phase 3: 訂閱設定 API (SubscriptionService, SubscriptionController)
-✓ Phase 4: 路由 worker (RoutingWorkerService, MySqlSagaRepository)
-✓ Phase 5: Saga Orchestrator (SagaOrchestratorService 狀態機核心)
-✓ Phase 6: Job Workers (JobWorkerService, LeaseResetCleanerService)
-✓ Phase 7: 死信模組 (DeadLetterService, Requeue 流程)
-✓ Phase 8: 可觀測性 (CorrelationId, Metrics, 整合測試框架)
+﻿? Phase 1: 資料庫 schema (001_InitialSchema.sql, 002_DatabaseRoles.sql)
+? Phase 2: 事件寫入服務 (EventIngestionService, MySqlEventRepository)
+? Phase 3: 訂閱設定 API (SubscriptionService, SubscriptionController)
+? Phase 4: 路由 worker (RoutingWorkerService, MySqlSagaRepository)
+? Phase 5: Saga Orchestrator (SagaOrchestratorService 狀態機核心)
+? Phase 6: Job Workers (JobWorkerService, LeaseResetCleanerService)
+? Phase 7: 死信模組 (DeadLetterService, Requeue 流程)
+? Phase 8: 可觀測性 (CorrelationId, Metrics, 整合測試框架)
 
-🎉 全部 8 個階段完成!
+?? 全部 8 個階段完成!
 
 ---
 
-## 📌 2025-12-11 更新：完成所有服務的 Program.cs + DI 設定
+## ?? 2025-12-11 更新：完成所有服務的 Program.cs + DI 設定
 
-✅ **已完成項目：**
+? **已完成項目：**
 
 ### 1. EventIngestion 服務
-- ✅ Program.cs (BackgroundService 模式)
-- ✅ appsettings.json + appsettings.Development.json
-- ✅ DI: IEventRepository → MySqlEventRepository
-- ✅ 資料庫權限：event_ingest_writer
+- ? Program.cs (BackgroundService 模式)
+- ? appsettings.json + appsettings.Development.json
+- ? DI: IEventRepository → MySqlEventRepository
+- ? 資料庫權限：event_ingest_writer
 
 ### 2. SubscriptionApi 服務
-- ✅ Program.cs (ASP.NET Core Web API)
-- ✅ appsettings.json + appsettings.Development.json
-- ✅ DI: ISubscriptionRepository → MySqlSubscriptionRepository
-- ✅ 資料庫權限：subscription_admin
-- ✅ 端口：5001
-- ✅ Swagger 已啟用
+- ? Program.cs (ASP.NET Core Web API)
+- ? appsettings.json + appsettings.Development.json
+- ? DI: ISubscriptionRepository → MySqlSubscriptionRepository
+- ? 資料庫權限：subscription_admin
+- ? 端口：5001
+- ? Swagger 已啟用
 
 ### 3. Router 服務
-- ✅ Program.cs (BackgroundService 模式)
-- ✅ appsettings.json + appsettings.Development.json
-- ✅ DI: IEventRepository, ISubscriptionRepository, ISagaRepository
-- ✅ 資料庫權限：router_worker
-- ✅ 配置：PollingIntervalSeconds, BatchSize
+- ? Program.cs (BackgroundService 模式)
+- ? appsettings.json + appsettings.Development.json
+- ? DI: IEventRepository, ISubscriptionRepository, ISagaRepository
+- ? 資料庫權限：router_worker
+- ? 配置：PollingIntervalSeconds, BatchSize
 
 ### 4. Orchestrator 服務
-- ✅ Program.cs (BackgroundService 模式)
-- ✅ appsettings.json + appsettings.Development.json
-- ✅ DI: ISagaRepository, IJobRepository, IEventRepository, IDeadLetterRepository
-- ✅ 資料庫權限：saga_orchestrator
-- ✅ 配置：MaxRetryLimit (5), BaseDelaySeconds (30)
+- ? Program.cs (BackgroundService 模式)
+- ? appsettings.json + appsettings.Development.json
+- ? DI: ISagaRepository, IJobRepository, IEventRepository, IDeadLetterRepository
+- ? 資料庫權限：saga_orchestrator
+- ? 配置：MaxRetryLimit (5), BaseDelaySeconds (30)
 
 ### 5. Worker 服務
-- ✅ Program.cs (BackgroundService 模式，雙服務)
-- ✅ appsettings.json + appsettings.Development.json
-- ✅ DI: IJobRepository, IEventRepository, ISubscriptionRepository, ISagaRepository
-- ✅ 資料庫權限：job_worker
-- ✅ HttpClient 已註冊 (30秒 timeout)
-- ✅ 雙背景服務：JobWorkerService + LeaseResetCleanerService
-- ✅ 配置：LeaseDurationSeconds (60), HttpTimeoutSeconds (30)
+- ? Program.cs (BackgroundService 模式，雙服務)
+- ? appsettings.json + appsettings.Development.json
+- ? DI: IJobRepository, IEventRepository, ISubscriptionRepository, ISagaRepository
+- ? 資料庫權限：job_worker
+- ? HttpClient 已註冊 (30秒 timeout)
+- ? 雙背景服務：JobWorkerService + LeaseResetCleanerService
+- ? 配置：LeaseDurationSeconds (60), HttpTimeoutSeconds (30)
 
 ### 6. DeadLetter 服務
-- ✅ Program.cs (ASP.NET Core Web API)
-- ✅ appsettings.json + appsettings.Development.json
-- ✅ DI: IDeadLetterRepository, ISagaRepository, IEventRepository
-- ✅ 資料庫權限：dead_letter_operator
-- ✅ 端口：5003
-- ✅ Swagger 已啟用
+- ? Program.cs (ASP.NET Core Web API)
+- ? appsettings.json + appsettings.Development.json
+- ? DI: IDeadLetterRepository, ISagaRepository, IEventRepository
+- ? 資料庫權限：dead_letter_operator
+- ? 端口：5003
+- ? Swagger 已啟用
 
 ---
 
 ---
 
-## 📌 2025-12-11 更新(2)：完成所有 Repository 實作
+## ?? 2025-12-11 更新(2)：完成所有 Repository 實作
 
-✅ **已補齊的 Repository：**
+? **已補齊的 Repository：**
 
 ### Router 服務
-- ✅ [MySqlEventRepository.cs](src/WebhookDelivery.Router/Infrastructure/MySqlEventRepository.cs) - 唯讀，用於讀取事件
-- ✅ [MySqlSubscriptionRepository.cs](src/WebhookDelivery.Router/Infrastructure/MySqlSubscriptionRepository.cs) - 唯讀，查詢 active 訂閱
-- ✅ [MySqlSagaRepository.cs](src/WebhookDelivery.Router/Infrastructure/MySqlSagaRepository.cs) - 已存在，支援冪等建立
+- ? [MySqlEventRepository.cs](src/WebhookDelivery.Router/Infrastructure/MySqlEventRepository.cs) - 唯讀，用於讀取事件
+- ? [MySqlSubscriptionRepository.cs](src/WebhookDelivery.Router/Infrastructure/MySqlSubscriptionRepository.cs) - 唯讀，查詢 active 訂閱
+- ? [MySqlSagaRepository.cs](src/WebhookDelivery.Router/Infrastructure/MySqlSagaRepository.cs) - 已存在，支援冪等建立
 
 ### Orchestrator 服務（新建 Infrastructure 資料夾）
-- ✅ [MySqlSagaRepository.cs](src/WebhookDelivery.Orchestrator/Infrastructure/MySqlSagaRepository.cs) - **唯一可更新 Saga 的實作**，包含終止狀態保護
-- ✅ [MySqlJobRepository.cs](src/WebhookDelivery.Orchestrator/Infrastructure/MySqlJobRepository.cs) - 建立 Job，讀取終止結果
-- ✅ [MySqlEventRepository.cs](src/WebhookDelivery.Orchestrator/Infrastructure/MySqlEventRepository.cs) - 唯讀，用於死信快照
-- ✅ [MySqlDeadLetterRepository.cs](src/WebhookDelivery.Orchestrator/Infrastructure/MySqlDeadLetterRepository.cs) - 建立死信記錄
+- ? [MySqlSagaRepository.cs](src/WebhookDelivery.Orchestrator/Infrastructure/MySqlSagaRepository.cs) - **唯一可更新 Saga 的實作**，包含終止狀態保護
+- ? [MySqlJobRepository.cs](src/WebhookDelivery.Orchestrator/Infrastructure/MySqlJobRepository.cs) - 建立 Job，讀取終止結果
+- ? [MySqlEventRepository.cs](src/WebhookDelivery.Orchestrator/Infrastructure/MySqlEventRepository.cs) - 唯讀，用於死信快照
+- ? [MySqlDeadLetterRepository.cs](src/WebhookDelivery.Orchestrator/Infrastructure/MySqlDeadLetterRepository.cs) - 建立死信記錄
 
 ### Worker 服務
-- ✅ [MySqlJobRepository.cs](src/WebhookDelivery.Worker/Infrastructure/MySqlJobRepository.cs) - 已存在，完整實作
-- ✅ [MySqlEventRepository.cs](src/WebhookDelivery.Worker/Infrastructure/MySqlEventRepository.cs) - 唯讀，讀取事件 payload
-- ✅ [MySqlSubscriptionRepository.cs](src/WebhookDelivery.Worker/Infrastructure/MySqlSubscriptionRepository.cs) - 唯讀，讀取 callback_url
-- ✅ [MySqlSagaRepository.cs](src/WebhookDelivery.Worker/Infrastructure/MySqlSagaRepository.cs) - **唯讀，禁止更新 Saga**
+- ? [MySqlJobRepository.cs](src/WebhookDelivery.Worker/Infrastructure/MySqlJobRepository.cs) - 已存在，完整實作
+- ? [MySqlEventRepository.cs](src/WebhookDelivery.Worker/Infrastructure/MySqlEventRepository.cs) - 唯讀，讀取事件 payload
+- ? [MySqlSubscriptionRepository.cs](src/WebhookDelivery.Worker/Infrastructure/MySqlSubscriptionRepository.cs) - 唯讀，讀取 callback_url
+- ? [MySqlSagaRepository.cs](src/WebhookDelivery.Worker/Infrastructure/MySqlSagaRepository.cs) - **唯讀，禁止更新 Saga**
 
 ### DeadLetter 服務
-- ✅ [MySqlDeadLetterRepository.cs](src/WebhookDelivery.DeadLetter/Infrastructure/MySqlDeadLetterRepository.cs) - 已存在
-- ✅ [MySqlSagaRepository.cs](src/WebhookDelivery.DeadLetter/Infrastructure/MySqlSagaRepository.cs) - **只能建立新 Saga（requeue），禁止更新舊 Saga**
-- ✅ [MySqlEventRepository.cs](src/WebhookDelivery.DeadLetter/Infrastructure/MySqlEventRepository.cs) - 唯讀
+- ? [MySqlDeadLetterRepository.cs](src/WebhookDelivery.DeadLetter/Infrastructure/MySqlDeadLetterRepository.cs) - 已存在
+- ? [MySqlSagaRepository.cs](src/WebhookDelivery.DeadLetter/Infrastructure/MySqlSagaRepository.cs) - **只能建立新 Saga（requeue），禁止更新舊 Saga**
+- ? [MySqlEventRepository.cs](src/WebhookDelivery.DeadLetter/Infrastructure/MySqlEventRepository.cs) - 唯讀
 
-### 🔒 **權限分離嚴格實作：**
-- ✅ Router: 不能建立 Job，不能修改 Saga 狀態
-- ✅ Orchestrator: **唯一可更新 Saga 狀態**，終止狀態保護已實作
-- ✅ Worker: **完全禁止修改 Saga**，只能更新 Job
-- ✅ DeadLetter: 不能更新舊 Saga，只能建立新 Saga
+### ?? **權限分離嚴格實作：**
+- ? Router: 不能建立 Job，不能修改 Saga 狀態
+- ? Orchestrator: **唯一可更新 Saga 狀態**，終止狀態保護已實作
+- ? Worker: **完全禁止修改 Saga**，只能更新 Job
+- ? DeadLetter: 不能更新舊 Saga，只能建立新 Saga
 
 ---
 
-## 📌 2025-12-11 更新(3)：完成 Saga Orchestrator 核心邏輯
+## ?? 2025-12-11 更新(3)：完成 Saga Orchestrator 核心邏輯
 
-✅ **已完成項目：**
+? **已完成項目：**
 
 ### ProcessJobResultsAsync() 實作
-- ✅ [SagaOrchestratorService.cs:161-201](src/WebhookDelivery.Orchestrator/Services/SagaOrchestratorService.cs#L161-L201) - 完整實作
-- ✅ 查詢所有 InProgress 狀態的 Saga
-- ✅ 檢查每個 Saga 是否有終止狀態的 Job (Completed/Failed)
-- ✅ 自動呼叫 ApplyJobSuccessAsync 或 ApplyJobFailureAsync
+- ? [SagaOrchestratorService.cs:161-201](src/WebhookDelivery.Orchestrator/Services/SagaOrchestratorService.cs#L161-L201) - 完整實作
+- ? 查詢所有 InProgress 狀態的 Saga
+- ? 檢查每個 Saga 是否有終止狀態的 Job (Completed/Failed)
+- ? 自動呼叫 ApplyJobSuccessAsync 或 ApplyJobFailureAsync
 
 ### 冪等性保護
-- ✅ ApplyJobSuccessAsync - 加入完整冪等性檢查（行224-245）
+- ? ApplyJobSuccessAsync - 加入完整冪等性檢查（行224-245）
   - 檢查 Saga 是否已在終止狀態
   - 驗證是否為最新的終止 Job（避免重複處理舊 Job）
-- ✅ ApplyJobFailureAsync - 加入完整冪等性檢查（行284-305）
+- ? ApplyJobFailureAsync - 加入完整冪等性檢查（行284-305）
   - 同樣的終止狀態與最新 Job 驗證
 
 ### ISagaRepository 介面更新
-- ✅ [ISagaRepository.cs](src/WebhookDelivery.Core/Repositories/ISagaRepository.cs) - 新增 `GetInProgressSagasAsync()`
-- ✅ 所有實作都已更新：
+- ? [ISagaRepository.cs](src/WebhookDelivery.Core/Repositories/ISagaRepository.cs) - 新增 `GetInProgressSagasAsync()`
+- ? 所有實作都已更新：
   - Router - 拋出異常（不需此方法）
   - Orchestrator - **完整實作**
   - Worker - 拋出異常（不需此方法）
@@ -125,21 +125,21 @@
 
 ---
 
-## 📌 2025-12-11 更新(4)：完成死信自動觸發邏輯
+## ?? 2025-12-11 更新(4)：完成死信自動觸發邏輯
 
-✅ **已完成項目：**
+? **已完成項目：**
 
 ### Saga → DeadLetter 自動整合
-- ✅ [SagaOrchestratorService.cs](src/WebhookDelivery.Orchestrator/Services/SagaOrchestratorService.cs) - 新增 `CreateDeadLetterRecordAsync()` 方法（行371-419）
-- ✅ 在 Saga 進入 `DeadLettered` 狀態時自動觸發
-- ✅ 自動讀取 Event Payload 並建立快照
-- ✅ 使用 `DeadLetter.FromSaga()` 工廠方法建立記錄
-- ✅ 完整的錯誤處理與日誌記錄
+- ? [SagaOrchestratorService.cs](src/WebhookDelivery.Orchestrator/Services/SagaOrchestratorService.cs) - 新增 `CreateDeadLetterRecordAsync()` 方法（行371-419）
+- ? 在 Saga 進入 `DeadLettered` 狀態時自動觸發
+- ? 自動讀取 Event Payload 並建立快照
+- ? 使用 `DeadLetter.FromSaga()` 工廠方法建立記錄
+- ? 完整的錯誤處理與日誌記錄
 
 ### 依賴注入更新
-- ✅ SagaOrchestratorService 加入 `IDeadLetterRepository` 依賴
-- ✅ SagaOrchestratorService 加入 `IEventRepository` 依賴
-- ✅ 建構函式已更新
+- ? SagaOrchestratorService 加入 `IDeadLetterRepository` 依賴
+- ? SagaOrchestratorService 加入 `IEventRepository` 依賴
+- ? 建構函式已更新
 
 ### 完整流程
 ```
@@ -152,25 +152,25 @@ Job 失敗 → attempt_count++ → 超過 max_retry_limit
 
 ---
 
-## 📌 2025-12-11 更新(5)：完成資料庫 Roles 與權限設定
+## ?? 2025-12-11 更新(5)：完成資料庫 Roles 與權限設定
 
-✅ **已完成項目：**
+? **已完成項目：**
 
 ### 資料庫 Roles 腳本完整實作
-- ✅ [002_DatabaseRoles.sql](src/WebhookDelivery.Database/Scripts/002_DatabaseRoles.sql) - 原始腳本（註解版）
-- ✅ [002_DatabaseRoles_Development.sql](src/WebhookDelivery.Database/Scripts/002_DatabaseRoles_Development.sql) - **開發環境可執行版本**
-- ✅ [002_DatabaseRoles_Production_Template.sql](src/WebhookDelivery.Database/Scripts/002_DatabaseRoles_Production_Template.sql) - 生產環境範本（含 SSL）
+- ? [002_DatabaseRoles.sql](src/WebhookDelivery.Database/Scripts/002_DatabaseRoles.sql) - 原始腳本（註解版）
+- ? [002_DatabaseRoles_Development.sql](src/WebhookDelivery.Database/Scripts/002_DatabaseRoles_Development.sql) - **開發環境可執行版本**
+- ? [002_DatabaseRoles_Production_Template.sql](src/WebhookDelivery.Database/Scripts/002_DatabaseRoles_Production_Template.sql) - 生產環境範本（含 SSL）
 
 ### 6 個資料庫角色定義
-1. ✅ **event_ingest_writer** - 只能 INSERT events
-2. ✅ **router_worker** - 只能 INSERT sagas（冪等）
-3. ✅ **saga_orchestrator** ⭐ - **唯一可 UPDATE sagas**
-4. ✅ **job_worker** - 只能 UPDATE jobs，**禁止修改 saga**
-5. ✅ **dead_letter_operator** - 只能建立新 saga（requeue）
-6. ✅ **subscription_admin** - 只能管理 subscriptions
+1. ? **event_ingest_writer** - 只能 INSERT events
+2. ? **router_worker** - 只能 INSERT sagas（冪等）
+3. ? **saga_orchestrator** ? - **唯一可 UPDATE sagas**
+4. ? **job_worker** - 只能 UPDATE jobs，**禁止修改 saga**
+5. ? **dead_letter_operator** - 只能建立新 saga（requeue）
+6. ? **subscription_admin** - 只能管理 subscriptions
 
 ### 權限矩陣文件
-- ✅ [PERMISSIONS_MATRIX.md](src/WebhookDelivery.Database/Scripts/PERMISSIONS_MATRIX.md) - 完整權限說明文件
+- ? [PERMISSIONS_MATRIX.md](src/WebhookDelivery.Database/Scripts/PERMISSIONS_MATRIX.md) - 完整權限說明文件
   - 詳細的權限表格
   - 每個角色的允許/禁止操作
   - 安全檢查點 SQL 範例
@@ -179,79 +179,79 @@ Job 失敗 → attempt_count++ → 超過 max_retry_limit
   - 常見問題解答
 
 ### 關鍵安全特性
-- 🔒 **最小權限原則**: 每個角色只有必要的最小權限
-- 🔒 **角色隔離**: saga_orchestrator 是**唯一**可 UPDATE sagas 的角色
-- 🔒 **Worker 保護**: job_worker **完全禁止**修改 saga（防止狀態破壞）
-- 🔒 **終止狀態保護**: 程式碼層級 + 資料庫層級雙重保護
-- 🔒 **SSL/TLS**: 生產環境強制 SSL 連線
+- ?? **最小權限原則**: 每個角色只有必要的最小權限
+- ?? **角色隔離**: saga_orchestrator 是**唯一**可 UPDATE sagas 的角色
+- ?? **Worker 保護**: job_worker **完全禁止**修改 saga（防止狀態破壞）
+- ?? **終止狀態保護**: 程式碼層級 + 資料庫層級雙重保護
+- ?? **SSL/TLS**: 生產環境強制 SSL 連線
 
 ---
 
-## 📌 2025-12-11 更新(6)：完成整合測試套件
+## ?? 2025-12-11 更新(6)：完成整合測試套件
 
-✅ **已完成項目：**
+? **已完成項目：**
 
 ### 測試基礎設施
-- ✅ [TestBase.cs](tests/WebhookDelivery.IntegrationTests/TestBase.cs) - 測試基類
+- ? [TestBase.cs](tests/WebhookDelivery.IntegrationTests/TestBase.cs) - 測試基類
   - 自動建立/清理測試資料庫
   - 自動執行 schema migration
   - 提供測試資料輔助方法：InsertTestEventAsync, InsertTestSubscriptionAsync, InsertTestSagaAsync, InsertTestJobAsync
   - IAsyncLifetime 生命週期管理
 
-- ✅ [appsettings.Test.json](tests/WebhookDelivery.IntegrationTests/appsettings.Test.json) - 測試配置
+- ? [appsettings.Test.json](tests/WebhookDelivery.IntegrationTests/appsettings.Test.json) - 測試配置
 
 ### IdempotencyTests.cs - 冪等性測試（7 個測試案例）
-- ✅ [IdempotencyTests.cs](tests/WebhookDelivery.IntegrationTests/IdempotencyTests.cs)
-  1. ✅ **DuplicateEventIngestion_ShouldNotCreateDuplicateEvents** - 事件去重
-  2. ✅ **DuplicateRouting_ShouldNotCreateDuplicateSagas** - Saga 去重（unique key on event_id, subscription_id）
-  3. ✅ **DuplicateJobResult_ShouldOnlyUpdateSagaOnce** - Job 結果冪等處理（終止狀態保護）
-  4. ✅ **WorkerCrashBeforeJobUpdate_ShouldResetViaLeaseCleaner** - Lease 過期重置機制
-  5. ✅ **RetryUntilDeadLetter_ShouldRespectMaxRetryLimit** - 最大重試次數限制
-  6. ✅ **Requeue_ShouldCreateNewSaga_NotModifyOldSaga** - Requeue 建立新 Saga，不修改舊 Saga
+- ? [IdempotencyTests.cs](tests/WebhookDelivery.IntegrationTests/IdempotencyTests.cs)
+  1. ? **DuplicateEventIngestion_ShouldNotCreateDuplicateEvents** - 事件去重
+  2. ? **DuplicateRouting_ShouldNotCreateDuplicateSagas** - Saga 去重（unique key on event_id, subscription_id）
+  3. ? **DuplicateJobResult_ShouldOnlyUpdateSagaOnce** - Job 結果冪等處理（終止狀態保護）
+  4. ? **WorkerCrashBeforeJobUpdate_ShouldResetViaLeaseCleaner** - Lease 過期重置機制
+  5. ? **RetryUntilDeadLetter_ShouldRespectMaxRetryLimit** - 最大重試次數限制
+  6. ? **Requeue_ShouldCreateNewSaga_NotModifyOldSaga** - Requeue 建立新 Saga，不修改舊 Saga
 
 ### DeadLetterTests.cs - 死信功能測試（5 個測試案例）
-- ✅ [DeadLetterTests.cs](tests/WebhookDelivery.IntegrationTests/DeadLetterTests.cs)
-  1. ✅ **SagaReachesDeadLettered_ShouldAutoCreateDeadLetterRecord** - 自動建立死信記錄
-  2. ✅ **DeadLetterRequeue_ShouldCreateNewSagaWithFreshState** - Requeue 建立新 Saga（attempt_count=0）
-  3. ✅ **DeadLetterRecord_ShouldContainEventPayloadSnapshot** - 死信包含完整 Event Payload 快照
-  4. ✅ **DeadLetter_ShouldBeImmutable** - 死信記錄不可變性
+- ? [DeadLetterTests.cs](tests/WebhookDelivery.IntegrationTests/DeadLetterTests.cs)
+  1. ? **SagaReachesDeadLettered_ShouldAutoCreateDeadLetterRecord** - 自動建立死信記錄
+  2. ? **DeadLetterRequeue_ShouldCreateNewSagaWithFreshState** - Requeue 建立新 Saga（attempt_count=0）
+  3. ? **DeadLetterRecord_ShouldContainEventPayloadSnapshot** - 死信包含完整 Event Payload 快照
+  4. ? **DeadLetter_ShouldBeImmutable** - 死信記錄不可變性
 
 ### PermissionTests.cs - 權限隔離測試（7 個測試案例）
-- ✅ [PermissionTests.cs](tests/WebhookDelivery.IntegrationTests/PermissionTests.cs)
-  1. ✅ **TerminalStateProtection_CompletedSaga_CannotBeUpdated** - Completed Saga 無法修改
-  2. ✅ **TerminalStateProtection_DeadLetteredSaga_CannotBeUpdated** - DeadLettered Saga 無法修改
-  3. ✅ **RouterWorker_CanInsertSaga_CannotUpdateSaga** - Router 只能建立 Saga，不能更新
-  4. ✅ **JobWorker_CanUpdateJob_CannotUpdateSaga** - Worker 只能更新 Job，**禁止更新 Saga**
-  5. ✅ **EventIngestWriter_CanInsertEvent_CannotUpdateEvent** - Event 不可變（append-only）
-  6. ✅ **DeadLetterOperator_CanInsertSaga_CannotUpdateSaga** - Dead Letter 只能建立新 Saga
-  7. ✅ **OnlySagaOrchestrator_CanUpdateSaga** - **唯一**可更新 Saga 的角色
+- ? [PermissionTests.cs](tests/WebhookDelivery.IntegrationTests/PermissionTests.cs)
+  1. ? **TerminalStateProtection_CompletedSaga_CannotBeUpdated** - Completed Saga 無法修改
+  2. ? **TerminalStateProtection_DeadLetteredSaga_CannotBeUpdated** - DeadLettered Saga 無法修改
+  3. ? **RouterWorker_CanInsertSaga_CannotUpdateSaga** - Router 只能建立 Saga，不能更新
+  4. ? **JobWorker_CanUpdateJob_CannotUpdateSaga** - Worker 只能更新 Job，**禁止更新 Saga**
+  5. ? **EventIngestWriter_CanInsertEvent_CannotUpdateEvent** - Event 不可變（append-only）
+  6. ? **DeadLetterOperator_CanInsertSaga_CannotUpdateSaga** - Dead Letter 只能建立新 Saga
+  7. ? **OnlySagaOrchestrator_CanUpdateSaga** - **唯一**可更新 Saga 的角色
 
 ### 測試覆蓋的關鍵場景
-- ✅ 冪等性保證（事件、Saga、Job 去重）
-- ✅ 終止狀態保護（Completed/DeadLettered 不可變）
-- ✅ Lease 過期重置機制
-- ✅ 死信自動觸發與 Requeue
-- ✅ 權限隔離（job_worker 禁止修改 saga）
-- ✅ Payload 快照完整性
+- ? 冪等性保證（事件、Saga、Job 去重）
+- ? 終止狀態保護（Completed/DeadLettered 不可變）
+- ? Lease 過期重置機制
+- ? 死信自動觸發與 Requeue
+- ? 權限隔離（job_worker 禁止修改 saga）
+- ? Payload 快照完整性
 
 **總計：19 個整合測試案例**
 
 ---
 
-## 📌 2025-12-11 更新(7)：完成 Docker 容器化部署
+## ?? 2025-12-11 更新(7)：完成 Docker 容器化部署
 
-✅ **已完成項目：**
+? **已完成項目：**
 
 ### Dockerfile（所有服務）
-- ✅ [EventIngestion/Dockerfile](src/WebhookDelivery.EventIngestion/Dockerfile) - Multi-stage build，非 root 使用者
-- ✅ [SubscriptionApi/Dockerfile](src/WebhookDelivery.SubscriptionApi/Dockerfile) - Web API，暴露 5001 端口
-- ✅ [Router/Dockerfile](src/WebhookDelivery.Router/Dockerfile) - BackgroundService
-- ✅ [Orchestrator/Dockerfile](src/WebhookDelivery.Orchestrator/Dockerfile) - BackgroundService
-- ✅ [Worker/Dockerfile](src/WebhookDelivery.Worker/Dockerfile) - BackgroundService（雙服務）
-- ✅ [DeadLetter/Dockerfile](src/WebhookDelivery.DeadLetter/Dockerfile) - Web API，暴露 5003 端口
+- ? [EventIngestion/Dockerfile](src/WebhookDelivery.EventIngestion/Dockerfile) - Multi-stage build，非 root 使用者
+- ? [SubscriptionApi/Dockerfile](src/WebhookDelivery.SubscriptionApi/Dockerfile) - Web API，暴露 5001 端口
+- ? [Router/Dockerfile](src/WebhookDelivery.Router/Dockerfile) - BackgroundService
+- ? [Orchestrator/Dockerfile](src/WebhookDelivery.Orchestrator/Dockerfile) - BackgroundService
+- ? [Worker/Dockerfile](src/WebhookDelivery.Worker/Dockerfile) - BackgroundService（雙服務）
+- ? [DeadLetter/Dockerfile](src/WebhookDelivery.DeadLetter/Dockerfile) - Web API，暴露 5003 端口
 
 ### Docker Compose 配置
-- ✅ [docker-compose.yml](docker-compose.yml) - **完整生產部署配置**
+- ? [docker-compose.yml](docker-compose.yml) - **完整生產部署配置**
   - MySQL 8.0 容器（含自動初始化腳本）
   - 6 個應用服務容器
   - 健康檢查配置
@@ -259,51 +259,51 @@ Job 失敗 → attempt_count++ → 超過 max_retry_limit
   - 網路隔離
   - Volume 持久化
 
-- ✅ [docker-compose.dev.yml](docker-compose.dev.yml) - **本地開發配置（僅 MySQL）**
+- ? [docker-compose.dev.yml](docker-compose.dev.yml) - **本地開發配置（僅 MySQL）**
   - 簡化版，只啟動 MySQL
   - 方便在 IDE 中直接運行應用程式
 
 ### 環境配置
-- ✅ [.env.example](.env.example) - 環境變數範本
+- ? [.env.example](.env.example) - 環境變數範本
   - 所有資料庫密碼配置
   - 生產環境安全建議
   - 密碼輪換提醒
 
-- ✅ [.dockerignore](.dockerignore) - Docker build 排除檔案
+- ? [.dockerignore](.dockerignore) - Docker build 排除檔案
   - 排除 bin/obj/packages
   - 排除 .git/.vs/.idea
   - 加速 Docker build
 
-- ✅ [.gitignore](.gitignore) - Git 版本控制排除
+- ? [.gitignore](.gitignore) - Git 版本控制排除
   - 排除 .env 檔案（敏感資訊）
   - 排除 build 輸出
   - 排除 IDE 配置
 
 ### 部署文件
-- ✅ [README-Docker.md](README-Docker.md) - **完整 Docker 部署指南**
-  - 🚀 快速開始（本地開發 + 完整部署）
-  - 🔧 常用命令（日誌、重啟、重建）
-  - 📊 監控與除錯
-  - 🔐 安全性設定
-  - 🐛 常見問題排查
-  - 📈 擴展部署（Swarm, Kubernetes）
+- ? [README-Docker.md](README-Docker.md) - **完整 Docker 部署指南**
+  - ?? 快速開始（本地開發 + 完整部署）
+  - ?? 常用命令（日誌、重啟、重建）
+  - ?? 監控與除錯
+  - ?? 安全性設定
+  - ?? 常見問題排查
+  - ?? 擴展部署（Swarm, Kubernetes）
 
 ### 關鍵特性
-- 🐳 **Multi-stage Build**: 減少 image 大小
-- 🔒 **非 Root 使用者**: 提升容器安全性
-- 🏥 **健康檢查**: MySQL + Web API 自動健康檢查
-- 📦 **資料持久化**: MySQL volume 持久化
-- 🌐 **網路隔離**: 使用 bridge 網路隔離
-- 📝 **日誌管理**: JSON 格式日誌，自動輪轉
-- ⚙️ **環境變數**: 完整的環境變數配置
-- 🔄 **自動重啟**: `restart: unless-stopped` 策略
+- ?? **Multi-stage Build**: 減少 image 大小
+- ?? **非 Root 使用者**: 提升容器安全性
+- ?? **健康檢查**: MySQL + Web API 自動健康檢查
+- ?? **資料持久化**: MySQL volume 持久化
+- ?? **網路隔離**: 使用 bridge 網路隔離
+- ?? **日誌管理**: JSON 格式日誌，自動輪轉
+- ?? **環境變數**: 完整的環境變數配置
+- ?? **自動重啟**: `restart: unless-stopped` 策略
 
 ### 部署架構
 ```
 docker-compose up -d
-├── mysql:8.0 (webhook_delivery_mysql)
-│   ├── Port: 3306
-│   ├── Volume: mysql_data
+├── postgres:15 (webhook_delivery_postgres)
+│   ├── Port: 5432
+│   ├── Volume: postgres_data
 │   └── Init Scripts: /docker-entrypoint-initdb.d
 │
 ├── event-ingestion (BackgroundService)
@@ -316,7 +316,7 @@ docker-compose up -d
 ├── router (BackgroundService)
 │   └── DB Role: router_worker
 │
-├── orchestrator (BackgroundService) ⭐
+├── orchestrator (BackgroundService) ?
 │   └── DB Role: saga_orchestrator
 │
 ├── worker (BackgroundService - Dual)
@@ -355,28 +355,30 @@ docker-compose logs -f orchestrator
 
 ---
 
-## 🎉 **系統完整度：100%**
+## ?? **系統完整度：100%**
 
-### ✅ 已完成的所有項目：
+### ? 已完成的所有項目：
 
-1. ✅ **資料庫 Schema** (Phase 1)
-2. ✅ **所有 6 個服務** (Phases 2-7)
-3. ✅ **所有 Repository 實作** (完整權限隔離)
-4. ✅ **Saga Orchestrator 核心邏輯** (ProcessJobResultsAsync)
-5. ✅ **死信自動觸發** (Auto Dead Letter)
-6. ✅ **資料庫 Roles 與權限** (PERMISSIONS_MATRIX.md)
-7. ✅ **整合測試套件** (19 個測試案例)
-8. ✅ **Docker 容器化部署** (完整 Docker Compose)
+1. ? **資料庫 Schema** (Phase 1)
+2. ? **所有 6 個服務** (Phases 2-7)
+3. ? **所有 Repository 實作** (完整權限隔離)
+4. ? **Saga Orchestrator 核心邏輯** (ProcessJobResultsAsync)
+5. ? **死信自動觸發** (Auto Dead Letter)
+6. ? **資料庫 Roles 與權限** (PERMISSIONS_MATRIX.md)
+7. ? **整合測試套件** (19 個測試案例)
+8. ? **Docker 容器化部署** (完整 Docker Compose)
 
-### 📚 完整文件：
-- ✅ PERMISSIONS_MATRIX.md - 權限矩陣
-- ✅ README-Docker.md - Docker 部署指南
-- ✅ r01.txt - Saga 規格
-- ✅ r02.txt - Job & Dead Letter 規格
-- ✅ r03.txt - 系統原則
-- ✅ r04.txt - Event & Subscription 規格
+### ?? 完整文件：
+- ? PERMISSIONS_MATRIX.md - 權限矩陣
+- ? README-Docker.md - Docker 部署指南
+- ? r01.txt - Saga 規格
+- ? r02.txt - Job & Dead Letter 規格
+- ? r03.txt - 系統原則
+- ? r04.txt - Event & Subscription 規格
 
 ---
 
 **最後更新**: 2025-12-11
-**狀態**: 🎉 **專案完成！可直接部署！**
+**狀態**: ?? **專案完成！可直接部署！**
+
+

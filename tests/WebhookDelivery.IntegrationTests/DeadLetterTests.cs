@@ -35,7 +35,7 @@ public class DeadLetterTests : TestBase
             INSERT INTO dead_letters
                 (saga_id, event_id, subscription_id, final_error_code, payload_snapshot)
             VALUES
-                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @PayloadSnapshot)
+                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @PayloadSnapshot::jsonb)
             RETURNING id;";
 
         var deadLetterId = await conn.ExecuteScalarAsync<long>(deadLetterSql, new
@@ -82,7 +82,7 @@ public class DeadLetterTests : TestBase
             INSERT INTO dead_letters
                 (saga_id, event_id, subscription_id, final_error_code, payload_snapshot)
             VALUES
-                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @PayloadSnapshot)", new
+                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @PayloadSnapshot::jsonb)", new
         {
             SagaId = deadLetteredSagaId,
             EventId = eventId,
@@ -112,7 +112,7 @@ public class DeadLetterTests : TestBase
         Assert.NotEqual(deadLetteredSagaId, newSagaId);
 
         var newSaga = await conn.QuerySingleAsync<dynamic>(
-            "SELECT * FROM webhook_delivery_sagas WHERE id = @Id",
+            "SELECT status::text AS status, attempt_count FROM webhook_delivery_sagas WHERE id = @Id",
             new { Id = newSagaId });
 
         Assert.Equal("Pending", newSaga.status);
@@ -120,7 +120,7 @@ public class DeadLetterTests : TestBase
 
         // Old saga should remain unchanged
         var oldSaga = await conn.QuerySingleAsync<dynamic>(
-            "SELECT * FROM webhook_delivery_sagas WHERE id = @Id",
+            "SELECT status::text AS status, attempt_count FROM webhook_delivery_sagas WHERE id = @Id",
             new { Id = deadLetteredSagaId });
 
         Assert.Equal("DeadLettered", oldSaga.status);
@@ -160,7 +160,7 @@ public class DeadLetterTests : TestBase
             INSERT INTO dead_letters
                 (saga_id, event_id, subscription_id, final_error_code, payload_snapshot)
             VALUES
-                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @PayloadSnapshot)", new
+                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @PayloadSnapshot::jsonb)", new
         {
             SagaId = sagaId,
             EventId = eventId,
@@ -204,7 +204,7 @@ public class DeadLetterTests : TestBase
             INSERT INTO dead_letters
                 (saga_id, event_id, subscription_id, final_error_code, payload_snapshot)
             VALUES
-                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @PayloadSnapshot)
+                (@SagaId, @EventId, @SubscriptionId, @FinalErrorCode, @PayloadSnapshot::jsonb)
             RETURNING id;", new
         {
             SagaId = sagaId,

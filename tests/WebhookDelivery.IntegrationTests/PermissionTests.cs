@@ -47,7 +47,7 @@ public class PermissionTests : TestBase
         Assert.Equal(0, rowsAffected);
 
         var saga = await conn.QuerySingleAsync<dynamic>(
-            "SELECT status FROM webhook_delivery_sagas WHERE id = @Id",
+            "SELECT status::text AS status FROM webhook_delivery_sagas WHERE id = @Id",
             new { Id = sagaId });
 
         Assert.Equal("Completed", saga.status); // Status unchanged
@@ -86,7 +86,7 @@ public class PermissionTests : TestBase
         Assert.Equal(0, rowsAffected);
 
         var saga = await conn.QuerySingleAsync<dynamic>(
-            "SELECT status, attempt_count FROM webhook_delivery_sagas WHERE id = @Id",
+            "SELECT status::text AS status, attempt_count FROM webhook_delivery_sagas WHERE id = @Id",
             new { Id = sagaId });
 
         Assert.Equal("DeadLettered", saga.status);
@@ -115,7 +115,7 @@ public class PermissionTests : TestBase
                     (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
                 VALUES
                     (@EventId, @SubscriptionId, 'Pending', 0, @NextAttemptAt, @CreatedAt, @UpdatedAt)
-                ON CONFLICT (event_id, subscription_id)
+                ON CONFLICT (event_id, subscription_id) WHERE status <> 'DeadLettered'
                 DO UPDATE SET event_id = EXCLUDED.event_id
                 RETURNING id
             )
@@ -142,6 +142,7 @@ public class PermissionTests : TestBase
             UPDATE webhook_delivery_sagas
             SET status = 'InProgress', updated_at = @UpdatedAt
             WHERE id = @Id";
+        _ = updateSql; // 說明用途，實際不執行
 
         // This would throw exception with proper role separation:
         // MySqlException: UPDATE command denied to user 'router_worker'
@@ -149,7 +150,7 @@ public class PermissionTests : TestBase
 
         // Document the expected behavior
         var saga = await conn.QuerySingleAsync<dynamic>(
-            "SELECT status FROM webhook_delivery_sagas WHERE id = @Id",
+            "SELECT status::text AS status FROM webhook_delivery_sagas WHERE id = @Id",
             new { Id = sagaId });
 
         Assert.Equal("Pending", saga.status); // Should remain Pending in production
@@ -192,7 +193,7 @@ public class PermissionTests : TestBase
         Assert.Equal(1, jobRowsAffected);
 
         var job = await conn.QuerySingleAsync<dynamic>(
-            "SELECT status, response_status FROM webhook_delivery_jobs WHERE id = @Id",
+            "SELECT status::text AS status, response_status FROM webhook_delivery_jobs WHERE id = @Id",
             new { Id = jobId });
 
         Assert.Equal("Completed", job.status);
@@ -204,13 +205,14 @@ public class PermissionTests : TestBase
             UPDATE webhook_delivery_sagas
             SET status = 'Completed', updated_at = @UpdatedAt
             WHERE id = @Id";
+        _ = updateSagaSql; // 說明用途，實際不執行
 
         // This would throw in production:
         // MySqlException: UPDATE command denied to user 'job_worker'@'%' for table 'webhook_delivery_sagas'
 
         // Document the critical requirement: Worker must NEVER modify saga
         var saga = await conn.QuerySingleAsync<dynamic>(
-            "SELECT status FROM webhook_delivery_sagas WHERE id = @Id",
+            "SELECT status::text AS status FROM webhook_delivery_sagas WHERE id = @Id",
             new { Id = sagaId });
 
         // Saga should remain InProgress until Orchestrator processes job result
@@ -230,7 +232,7 @@ public class PermissionTests : TestBase
         // Act 1: Event ingestion can INSERT event (append-only)
         var insertSql = @"
             INSERT INTO events (external_event_id, event_type, payload, created_at)
-            VALUES (@ExternalEventId, @EventType, @Payload, @CreatedAt)
+            VALUES (@ExternalEventId, @EventType, @Payload::jsonb, @CreatedAt)
             ON CONFLICT (external_event_id)
             DO UPDATE SET external_event_id = EXCLUDED.external_event_id
             RETURNING id;";
@@ -250,8 +252,9 @@ public class PermissionTests : TestBase
         // Events are immutable - no role should have UPDATE permission
         var updateSql = @"
             UPDATE events
-            SET payload = @Payload
+            SET payload = @Payload::jsonb
             WHERE id = @Id";
+        _ = updateSql; // 說明用途，實際不執行
 
         // In production with event_ingest_writer role, this throws:
         // MySqlException: UPDATE command denied
@@ -309,13 +312,14 @@ public class PermissionTests : TestBase
             UPDATE webhook_delivery_sagas
             SET status = 'Pending', attempt_count = 0, updated_at = @UpdatedAt
             WHERE id = @Id";
+        _ = updateSql; // 說明用途，實際不執行
 
         // This would throw in production:
         // MySqlException: UPDATE command denied to user 'dead_letter_operator'
 
         // Verify old saga remains unchanged
         var oldSaga = await conn.QuerySingleAsync<dynamic>(
-            "SELECT status, attempt_count FROM webhook_delivery_sagas WHERE id = @Id",
+            "SELECT status::text AS status, attempt_count FROM webhook_delivery_sagas WHERE id = @Id",
             new { Id = deadLetteredSagaId });
 
         Assert.Equal("DeadLettered", oldSaga.status);
@@ -374,7 +378,7 @@ public class PermissionTests : TestBase
 
         // Verify final state
         var saga = await conn.QuerySingleAsync<dynamic>(
-            "SELECT status, attempt_count FROM webhook_delivery_sagas WHERE id = @Id",
+            "SELECT status::text AS status, attempt_count FROM webhook_delivery_sagas WHERE id = @Id",
             new { Id = sagaId });
 
         Assert.Equal("PendingRetry", saga.status);

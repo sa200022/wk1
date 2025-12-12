@@ -8,24 +8,13 @@
 -- ============================================================================
 
 -- Drop tables in dependency order (idempotent for local dev/testing)
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'dead_letters') THEN
-        DROP TABLE IF EXISTS dead_letters;
-    END IF;
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'webhook_delivery_jobs') THEN
-        DROP TABLE IF EXISTS webhook_delivery_jobs;
-    END IF;
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'webhook_delivery_sagas') THEN
-        DROP TABLE IF EXISTS webhook_delivery_sagas;
-    END IF;
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'subscriptions') THEN
-        DROP TABLE IF EXISTS subscriptions;
-    END IF;
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'events') THEN
-        DROP TABLE IF EXISTS events;
-    END IF;
-END$$;
+DROP TABLE IF EXISTS dead_letters CASCADE;
+DROP TABLE IF EXISTS webhook_delivery_jobs CASCADE;
+DROP TABLE IF EXISTS webhook_delivery_sagas CASCADE;
+DROP TABLE IF EXISTS subscriptions CASCADE;
+DROP TABLE IF EXISTS events CASCADE;
+DROP TYPE IF EXISTS saga_status_enum;
+DROP TYPE IF EXISTS job_status_enum;
 
 -- ============================================================================
 -- Table: events
@@ -62,7 +51,7 @@ CREATE INDEX IF NOT EXISTS idx_sub_active ON subscriptions (active);
 -- Table: webhook_delivery_sagas
 -- Purpose: Orchestration layer coordinating webhook delivery state
 -- ============================================================================
-CREATE TYPE IF NOT EXISTS saga_status_enum AS ENUM ('Pending', 'InProgress', 'PendingRetry', 'Completed', 'DeadLettered');
+CREATE TYPE saga_status_enum AS ENUM ('Pending', 'InProgress', 'PendingRetry', 'Completed', 'DeadLettered');
 
 CREATE TABLE IF NOT EXISTS webhook_delivery_sagas (
     id BIGSERIAL PRIMARY KEY,
@@ -73,9 +62,11 @@ CREATE TABLE IF NOT EXISTS webhook_delivery_sagas (
     next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     final_error_code VARCHAR(100) NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uniq_saga_event_subscription UNIQUE (event_id, subscription_id)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_saga_event_active
+    ON webhook_delivery_sagas (event_id, subscription_id)
+    WHERE status <> 'DeadLettered';
 CREATE INDEX IF NOT EXISTS idx_saga_event ON webhook_delivery_sagas (event_id, subscription_id);
 CREATE INDEX IF NOT EXISTS idx_saga_status_retry ON webhook_delivery_sagas (status, next_attempt_at);
 CREATE INDEX IF NOT EXISTS idx_saga_status ON webhook_delivery_sagas (status);
@@ -84,7 +75,7 @@ CREATE INDEX IF NOT EXISTS idx_saga_status ON webhook_delivery_sagas (status);
 -- Table: webhook_delivery_jobs
 -- Purpose: Individual atomic delivery attempts
 -- ============================================================================
-CREATE TYPE IF NOT EXISTS job_status_enum AS ENUM ('Pending', 'Leased', 'Completed', 'Failed');
+CREATE TYPE job_status_enum AS ENUM ('Pending', 'Leased', 'Completed', 'Failed');
 
 CREATE TABLE IF NOT EXISTS webhook_delivery_jobs (
     id BIGSERIAL PRIMARY KEY,

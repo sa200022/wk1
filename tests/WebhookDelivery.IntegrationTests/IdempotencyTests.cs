@@ -29,7 +29,7 @@ public class IdempotencyTests : TestBase
         await using var conn = new NpgsqlConnection(ConnectionString);
         var sql = @"
             INSERT INTO events (external_event_id, event_type, payload, created_at)
-            VALUES (@ExternalEventId, @EventType, @Payload, @CreatedAt)
+            VALUES (@ExternalEventId, @EventType, @Payload::jsonb, @CreatedAt)
             ON CONFLICT (external_event_id)
             DO UPDATE SET external_event_id = EXCLUDED.external_event_id
             RETURNING id";
@@ -73,8 +73,8 @@ public class IdempotencyTests : TestBase
                 INSERT INTO webhook_delivery_sagas
                     (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
                 VALUES
-                    (@EventId, @SubscriptionId, @Status, @AttemptCount, @NextAttemptAt, @CreatedAt, @UpdatedAt)
-                ON CONFLICT (event_id, subscription_id)
+                    (@EventId, @SubscriptionId, @Status::saga_status_enum, @AttemptCount, @NextAttemptAt, @CreatedAt, @UpdatedAt)
+                ON CONFLICT (event_id, subscription_id) WHERE status <> 'DeadLettered'
                 DO UPDATE SET event_id = EXCLUDED.event_id
                 RETURNING id
             )
@@ -124,7 +124,7 @@ public class IdempotencyTests : TestBase
         // Act: Apply job success twice (simulating duplicate processing)
         var updateSql = @"
             UPDATE webhook_delivery_sagas
-            SET status = @Status, updated_at = @UpdatedAt
+            SET status = @Status::saga_status_enum, updated_at = @UpdatedAt
             WHERE id = @Id AND status NOT IN ('Completed', 'DeadLettered')";
 
         var firstUpdate = await conn.ExecuteAsync(updateSql, new
@@ -146,7 +146,7 @@ public class IdempotencyTests : TestBase
         Assert.Equal(0, secondUpdate); // Terminal state protection blocked second update
 
         var saga = await conn.QuerySingleAsync<dynamic>(
-            "SELECT status FROM webhook_delivery_sagas WHERE id = @Id",
+            "SELECT status::text AS status FROM webhook_delivery_sagas WHERE id = @Id",
             new { Id = sagaId });
         Assert.Equal("Completed", saga.status);
     }
@@ -188,7 +188,7 @@ public class IdempotencyTests : TestBase
         Assert.Equal(1, resetCount);
 
         var job = await conn.QuerySingleAsync<dynamic>(
-            "SELECT status, lease_until FROM webhook_delivery_jobs WHERE id = @Id",
+            "SELECT status::text AS status, lease_until FROM webhook_delivery_jobs WHERE id = @Id",
             new { Id = jobId });
 
         Assert.Equal("Pending", job.status);
@@ -237,7 +237,7 @@ public class IdempotencyTests : TestBase
         Assert.Equal(1, updateCount);
 
         var saga = await conn.QuerySingleAsync<dynamic>(
-            "SELECT status, attempt_count FROM webhook_delivery_sagas WHERE id = @Id",
+            "SELECT status::text AS status, attempt_count FROM webhook_delivery_sagas WHERE id = @Id",
             new { Id = sagaId });
 
         Assert.Equal("DeadLettered", saga.status);
@@ -263,7 +263,7 @@ public class IdempotencyTests : TestBase
 
         // Read old saga state before requeue
         var oldSaga = await conn.QuerySingleAsync<dynamic>(
-            "SELECT status, attempt_count FROM webhook_delivery_sagas WHERE id = @Id",
+            "SELECT status::text AS status, attempt_count FROM webhook_delivery_sagas WHERE id = @Id",
             new { Id = oldSagaId });
 
         // Act: Requeue - create NEW saga
@@ -287,7 +287,7 @@ public class IdempotencyTests : TestBase
         Assert.NotEqual(oldSagaId, newSagaId);
 
         var newSaga = await conn.QuerySingleAsync<dynamic>(
-            "SELECT status, attempt_count FROM webhook_delivery_sagas WHERE id = @Id",
+            "SELECT status::text AS status, attempt_count FROM webhook_delivery_sagas WHERE id = @Id",
             new { Id = newSagaId });
 
         Assert.Equal("Pending", newSaga.status);
@@ -295,7 +295,7 @@ public class IdempotencyTests : TestBase
 
         // Old saga unchanged
         var oldSagaAfter = await conn.QuerySingleAsync<dynamic>(
-            "SELECT status, attempt_count FROM webhook_delivery_sagas WHERE id = @Id",
+            "SELECT status::text AS status, attempt_count FROM webhook_delivery_sagas WHERE id = @Id",
             new { Id = oldSagaId });
 
         Assert.Equal("DeadLettered", oldSagaAfter.status);

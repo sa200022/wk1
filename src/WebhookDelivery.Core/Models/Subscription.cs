@@ -6,7 +6,7 @@ namespace WebhookDelivery.Core.Models;
 /// Subscription configuration entity
 /// Pure configuration layer - no orchestration, no side effects
 /// </summary>
-public sealed class Subscription
+public sealed record Subscription
 {
     public long Id { get; init; }
 
