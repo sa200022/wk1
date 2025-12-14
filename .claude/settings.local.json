@@ -3,7 +3,9 @@
     "allow": [
       "Bash(cat:*)",
       "Bash(dotnet build:*)",
-      "Bash(docker-compose:*)"
+      "Bash(docker-compose:*)",
+      "Bash(where:*)",
+      "Bash(choco --version:*)"
     ]
   }
 }

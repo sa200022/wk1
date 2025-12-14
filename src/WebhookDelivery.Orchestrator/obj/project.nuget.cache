@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "uhWq8gigeD4=",
+  "dgSpecHash": "2oNM6KF5rS4=",
   "success": true,
-  "projectFilePath": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Orchestrator\\WebhookDelivery.Orchestrator.csproj",
+  "projectFilePath": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Orchestrator\\WebhookDelivery.Orchestrator.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\DogbearZ\\.nuget\\packages\\dapper\\2.1.35\\dapper.2.1.35.nupkg.sha512",
     "C:\\Users\\DogbearZ\\.nuget\\packages\\microsoft.extensions.configuration\\8.0.0\\microsoft.extensions.configuration.8.0.0.nupkg.sha512",

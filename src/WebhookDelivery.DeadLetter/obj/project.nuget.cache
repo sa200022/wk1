@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "Z7l7X7JOgdU=",
+  "dgSpecHash": "R4X/ueQXTk0=",
   "success": true,
-  "projectFilePath": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.DeadLetter\\WebhookDelivery.DeadLetter.csproj",
+  "projectFilePath": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.DeadLetter\\WebhookDelivery.DeadLetter.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\DogbearZ\\.nuget\\packages\\dapper\\2.1.35\\dapper.2.1.35.nupkg.sha512",
     "C:\\Users\\DogbearZ\\.nuget\\packages\\microsoft.extensions.apidescription.server\\6.0.5\\microsoft.extensions.apidescription.server.6.0.5.nupkg.sha512",

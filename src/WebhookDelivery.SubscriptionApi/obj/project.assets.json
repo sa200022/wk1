@@ -816,8 +816,8 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj": {
-              "projectPath": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj"
+            "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj": {
+              "projectPath": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj"
             }
           }
         }

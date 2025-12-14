@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "sGJHp+l32/Q=",
+  "dgSpecHash": "EPY1+B7DNJY=",
   "success": true,
-  "projectFilePath": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.SubscriptionApi\\WebhookDelivery.SubscriptionApi.csproj",
+  "projectFilePath": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.SubscriptionApi\\WebhookDelivery.SubscriptionApi.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\DogbearZ\\.nuget\\packages\\dapper\\2.1.35\\dapper.2.1.35.nupkg.sha512",
     "C:\\Users\\DogbearZ\\.nuget\\packages\\microsoft.aspnetcore.openapi\\8.0.0\\microsoft.aspnetcore.openapi.8.0.0.nupkg.sha512",

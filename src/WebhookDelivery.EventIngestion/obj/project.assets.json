@@ -557,11 +557,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.EventIngestion\\WebhookDelivery.EventIngestion.csproj",
+      "projectUniqueName": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.EventIngestion\\WebhookDelivery.EventIngestion.csproj",
       "projectName": "WebhookDelivery.EventIngestion",
-      "projectPath": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.EventIngestion\\WebhookDelivery.EventIngestion.csproj",
+      "projectPath": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.EventIngestion\\WebhookDelivery.EventIngestion.csproj",
       "packagesPath": "C:\\Users\\DogbearZ\\.nuget\\packages\\",
-      "outputPath": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.EventIngestion\\obj\\",
+      "outputPath": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.EventIngestion\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\DogbearZ\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -576,8 +576,8 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj": {
-              "projectPath": "c:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj"
+            "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj": {
+              "projectPath": "C:\\Users\\DogbearZ\\Documents\\GitHub\\wk1\\src\\WebhookDelivery.Core\\WebhookDelivery.Core.csproj"
             }
           }
         }
