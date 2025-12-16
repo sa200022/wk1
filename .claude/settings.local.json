@@ -11,7 +11,9 @@
       "Bash(Select-Object Name, Status, DisplayName)",
       "Bash(Format-Table -AutoSize)",
       "Bash(dotnet test:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(rm:*)",
+      "Bash(git add:*)"
     ]
   }
 }
