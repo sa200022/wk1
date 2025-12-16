@@ -5,7 +5,13 @@
       "Bash(dotnet build:*)",
       "Bash(docker-compose:*)",
       "Bash(where:*)",
-      "Bash(choco --version:*)"
+      "Bash(choco --version:*)",
+      "Bash(dotnet --version:*)",
+      "Bash(Get-Service -Name postgresql*)",
+      "Bash(Select-Object Name, Status, DisplayName)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(dotnet test:*)",
+      "Bash(find:*)"
     ]
   }
 }
