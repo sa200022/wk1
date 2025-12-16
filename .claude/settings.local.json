@@ -13,7 +13,9 @@
       "Bash(dotnet test:*)",
       "Bash(find:*)",
       "Bash(rm:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
