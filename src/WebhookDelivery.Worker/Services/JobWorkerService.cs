@@ -31,15 +31,18 @@ public sealed class JobWorkerService : BackgroundService
     private readonly IJobRepository _jobRepository;
     private readonly IEventRepository _eventRepository;
     private readonly ISubscriptionRepository _subscriptionRepository;
+    private readonly ISagaRepository _sagaRepository;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<JobWorkerService> _logger;
     private readonly TimeSpan _leaseDuration;
-    private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(2);
+    private readonly TimeSpan _pollingInterval;
+    private readonly int _batchSize;
 
     public JobWorkerService(
         IJobRepository jobRepository,
         IEventRepository eventRepository,
         ISubscriptionRepository subscriptionRepository,
+        ISagaRepository sagaRepository,
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
         ILogger<JobWorkerService> logger)
@@ -47,10 +50,13 @@ public sealed class JobWorkerService : BackgroundService
         _jobRepository = jobRepository ?? throw new ArgumentNullException(nameof(jobRepository));
         _eventRepository = eventRepository ?? throw new ArgumentNullException(nameof(eventRepository));
         _subscriptionRepository = subscriptionRepository ?? throw new ArgumentNullException(nameof(subscriptionRepository));
+        _sagaRepository = sagaRepository ?? throw new ArgumentNullException(nameof(sagaRepository));
         _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-        _leaseDuration = TimeSpan.FromSeconds(configuration.GetValue<int>("Worker:LeaseSeconds", 60));
+        _leaseDuration = TimeSpan.FromSeconds(configuration.GetValue<int>("Worker:LeaseDurationSeconds", 60));
+        _pollingInterval = TimeSpan.FromSeconds(configuration.GetValue<int>("Worker:PollingIntervalSeconds", 2));
+        _batchSize = configuration.GetValue<int>("Worker:BatchSize", 10);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -76,7 +82,7 @@ public sealed class JobWorkerService : BackgroundService
 
     private async Task ProcessPendingJobsAsync(CancellationToken cancellationToken)
     {
-        var jobs = await _jobRepository.GetPendingJobsAsync(10, cancellationToken);
+        var jobs = await _jobRepository.GetPendingJobsAsync(_batchSize, cancellationToken);
 
         foreach (var job in jobs)
         {
@@ -105,11 +111,37 @@ public sealed class JobWorkerService : BackgroundService
 
         try
         {
-            // Step 2: Load event and subscription data
-            // (In production, this would be optimized with caching or joins)
+        // Step 2: Load event and subscription data
+        var saga = await _sagaRepository.GetByIdAsync(job.SagaId, cancellationToken);
+        if (saga == null)
+        {
+            _logger.LogError("Saga {SagaId} not found for job {JobId}", job.SagaId, job.Id);
+            await MarkJobFailedAsync(leased, "SAGA_NOT_FOUND", cancellationToken);
+            return;
+        }
 
-            // Step 3: Execute HTTP delivery
-            var result = await ExecuteWebhookDeliveryAsync(job.SagaId, cancellationToken);
+        var @event = await _eventRepository.GetByIdAsync(saga.EventId, cancellationToken);
+        if (@event == null)
+        {
+            _logger.LogError("Event {EventId} not found for job {JobId}", saga.EventId, job.Id);
+            await MarkJobFailedAsync(leased, "EVENT_NOT_FOUND", cancellationToken);
+            return;
+        }
+
+        var subscription = await _subscriptionRepository.GetByIdAsync(saga.SubscriptionId, cancellationToken);
+        if (subscription == null)
+        {
+            _logger.LogError("Subscription {SubscriptionId} not found for job {JobId}", saga.SubscriptionId, job.Id);
+            await MarkJobFailedAsync(leased, "SUBSCRIPTION_NOT_FOUND", cancellationToken);
+            return;
+        }
+
+        // Step 3: Execute HTTP delivery
+        var result = await ExecuteWebhookDeliveryAsync(
+            job.SagaId,
+            subscription.CallbackUrl,
+            @event.Payload,
+            cancellationToken);
 
             // Step 4: Report result
             if (result.Success)
@@ -117,7 +149,8 @@ public sealed class JobWorkerService : BackgroundService
                 var completed = leased with
                 {
                     Status = JobStatus.Completed,
-                    ResponseStatus = result.HttpStatusCode
+                    ResponseStatus = result.HttpStatusCode,
+                    LeaseUntil = null
                 };
                 await _jobRepository.UpdateAsync(completed, cancellationToken);
 
@@ -131,7 +164,8 @@ public sealed class JobWorkerService : BackgroundService
                 var failed = leased with
                 {
                     Status = JobStatus.Failed,
-                    ErrorCode = result.ErrorCode
+                    ErrorCode = result.ErrorCode,
+                    LeaseUntil = null
                 };
                 await _jobRepository.UpdateAsync(failed, cancellationToken);
 
@@ -149,28 +183,47 @@ public sealed class JobWorkerService : BackgroundService
             var failed = leased with
             {
                 Status = JobStatus.Failed,
-                ErrorCode = "WORKER_EXCEPTION"
+                ErrorCode = "WORKER_EXCEPTION",
+                LeaseUntil = null
             };
             await _jobRepository.UpdateAsync(failed, cancellationToken);
         }
     }
 
-    private async Task<DeliveryResult> ExecuteWebhookDeliveryAsync(
-        long sagaId,
+    private async Task MarkJobFailedAsync(
+        WebhookDeliveryJob job,
+        string errorCode,
         CancellationToken cancellationToken)
     {
-        // Simplified - in production, would load full event payload and subscription details
+        var failed = job with
+        {
+            Status = JobStatus.Failed,
+            ErrorCode = errorCode,
+            LeaseUntil = null
+        };
 
+        await _jobRepository.UpdateAsync(failed, cancellationToken);
+    }
+
+    private async Task<DeliveryResult> ExecuteWebhookDeliveryAsync(
+        long sagaId,
+        string callbackUrl,
+        JsonDocument payload,
+        CancellationToken cancellationToken)
+    {
         try
         {
-            var httpClient = _httpClientFactory.CreateClient();
+            var httpClient = _httpClientFactory.CreateClient("WebhookClient");
 
-            // Mock webhook delivery
-            var callbackUrl = "https://example.com/webhook"; // Would load from subscription
-            var payload = new { sagaId, timestamp = DateTime.UtcNow }; // Would use event payload
+            var envelope = new
+            {
+                sagaId,
+                deliveredAt = DateTime.UtcNow,
+                payload = payload.RootElement
+            };
 
             var content = new StringContent(
-                JsonSerializer.Serialize(payload),
+                JsonSerializer.Serialize(envelope),
                 Encoding.UTF8,
                 "application/json");
 
@@ -193,6 +246,7 @@ public sealed class JobWorkerService : BackgroundService
         }
         catch (HttpRequestException ex)
         {
+            _logger.LogWarning(ex, "HTTP request failed for saga {SagaId}", sagaId);
             return new DeliveryResult
             {
                 Success = false,

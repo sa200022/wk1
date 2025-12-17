@@ -94,4 +94,9 @@ public sealed class PostgresSubscriptionRepository : ISubscriptionRepository
         // Router should NOT be able to update subscriptions
         throw new InvalidOperationException("Router worker does not have permission to update subscriptions");
     }
+
+    public Task<IReadOnlyList<Subscription>> GetAllAsync(int limit, int offset, CancellationToken cancellationToken = default)
+    {
+        throw new InvalidOperationException("Router worker does not list subscriptions");
+    }
 }

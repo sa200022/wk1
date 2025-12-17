@@ -16,16 +16,17 @@ builder.Logging.AddDebug();
 // Register PostgreSQL connection factory
 builder.Services.AddScoped(_ =>
 {
-    var connectionString = builder.Configuration.GetSection("Database:ConnectionString").Value
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
         ?? throw new InvalidOperationException("Database connection string is not configured");
     return new NpgsqlConnection(connectionString);
 });
 
 // Register HTTP client for webhook delivery
+var httpTimeoutSeconds = builder.Configuration.GetValue<int>("Worker:HttpTimeoutSeconds", 30);
 builder.Services.AddHttpClient("WebhookClient")
     .ConfigureHttpClient(client =>
     {
-        client.Timeout = TimeSpan.FromSeconds(30);
+        client.Timeout = TimeSpan.FromSeconds(httpTimeoutSeconds);
     });
 
 // Register repositories

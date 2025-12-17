@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,7 +26,7 @@ public sealed class PostgresEventRepository : IEventRepository
     public async Task<Event?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
     {
         const string sql = @"
-            SELECT id, event_type, created_at, payload
+            SELECT id, external_event_id, event_type, created_at, payload::text AS payload
             FROM events
             WHERE id = @Id
         ";
@@ -43,9 +44,10 @@ public sealed class PostgresEventRepository : IEventRepository
         return new Event
         {
             Id = result.id,
+            ExternalEventId = result.external_event_id,
             EventType = result.event_type,
             CreatedAt = result.created_at,
-            Payload = JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<string, object>>(result.payload)
+            Payload = JsonDocument.Parse((string)result.payload)
         };
     }
 
@@ -53,5 +55,54 @@ public sealed class PostgresEventRepository : IEventRepository
     {
         // Worker cannot insert events
         throw new InvalidOperationException("Worker does not have permission to insert events");
+    }
+
+    public async Task<long> GetMaxEventIdAsync(CancellationToken cancellationToken = default)
+    {
+        const string sql = @"SELECT COALESCE(MAX(id), 0) FROM events;";
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var maxId = await connection.ExecuteScalarAsync<long>(
+            new CommandDefinition(sql, cancellationToken: cancellationToken));
+
+        return maxId;
+    }
+
+    public async Task<IReadOnlyList<Event>> GetAfterIdAsync(
+        long lastSeenEventId,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = @"
+            SELECT id, external_event_id, event_type, created_at, payload::text AS payload
+            FROM events
+            WHERE id > @LastId
+            ORDER BY id ASC
+            LIMIT @Limit
+        ";
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<dynamic>(
+            new CommandDefinition(sql, new { LastId = lastSeenEventId, Limit = limit }, cancellationToken: cancellationToken)
+        );
+
+        var events = new List<Event>();
+        foreach (var row in rows)
+        {
+            events.Add(new Event
+            {
+                Id = row.id,
+                ExternalEventId = row.external_event_id,
+                EventType = row.event_type,
+                Payload = JsonDocument.Parse((string)row.payload),
+                CreatedAt = row.created_at
+            });
+        }
+
+        return events;
     }
 }

@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using WebhookDelivery.Core.Models;
 using WebhookDelivery.Core.Repositories;
 
@@ -19,7 +20,8 @@ public sealed class RoutingWorkerService : BackgroundService
     private readonly ISubscriptionRepository _subscriptionRepository;
     private readonly ISagaRepository _sagaRepository;
     private readonly ILogger<RoutingWorkerService> _logger;
-    private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);
+    private readonly TimeSpan _pollingInterval;
+    private readonly int _batchSize;
 
     private long _lastProcessedEventId = 0;
 
@@ -27,17 +29,25 @@ public sealed class RoutingWorkerService : BackgroundService
         IEventRepository eventRepository,
         ISubscriptionRepository subscriptionRepository,
         ISagaRepository sagaRepository,
+        IConfiguration configuration,
         ILogger<RoutingWorkerService> logger)
     {
         _eventRepository = eventRepository ?? throw new ArgumentNullException(nameof(eventRepository));
         _subscriptionRepository = subscriptionRepository ?? throw new ArgumentNullException(nameof(subscriptionRepository));
         _sagaRepository = sagaRepository ?? throw new ArgumentNullException(nameof(sagaRepository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        _pollingInterval = TimeSpan.FromSeconds(configuration.GetValue<int>("Routing:PollingIntervalSeconds", 5));
+        _batchSize = configuration.GetValue<int>("Routing:BatchSize", 100);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Routing worker started");
+
+        // Initialize last processed event ID to the current max to avoid replaying historical events on first start
+        _lastProcessedEventId = await _eventRepository.GetMaxEventIdAsync(stoppingToken);
+        _logger.LogInformation("Router initialized at last event ID {LastEventId}", _lastProcessedEventId);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -58,26 +68,58 @@ public sealed class RoutingWorkerService : BackgroundService
 
     private async Task ProcessNewEventsAsync(CancellationToken cancellationToken)
     {
-        // Note: This is a simplified implementation
-        // In production, use change data capture (CDC) or event streaming
-        // to react to new events instead of polling
-
-        // For demonstration, we would:
-        // 1. Query events with id > _lastProcessedEventId
-        // 2. For each event, load subscriptions matching event_type, active=1, verified=1
-        // 3. For each subscription, create saga idempotently
-        // 4. Update _lastProcessedEventId
-
         _logger.LogDebug("Polling for new events after ID {LastEventId}", _lastProcessedEventId);
 
-        // Implementation would go here - omitted for brevity
-        // This is where you would call:
-        // - Get new events
-        // - For each event:
-        //   - var subscriptions = await _subscriptionRepository.GetActiveAndVerifiedAsync(event.EventType)
-        //   - For each subscription:
-        //     - var saga = WebhookDeliverySaga.CreatePending(event.Id, subscription.Id)
-        //     - await _sagaRepository.CreateIdempotentAsync(saga)
+        var events = await _eventRepository.GetAfterIdAsync(
+            _lastProcessedEventId,
+            _batchSize,
+            cancellationToken);
+
+        if (events.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var @event in events)
+        {
+            var subscriptions = await _subscriptionRepository.GetActiveAndVerifiedAsync(
+                @event.EventType,
+                cancellationToken);
+
+            if (subscriptions.Count == 0)
+            {
+                _logger.LogDebug(
+                    "No active+verified subscriptions for event {EventId} ({EventType})",
+                    @event.Id,
+                    @event.EventType);
+                _lastProcessedEventId = @event.Id;
+                continue;
+            }
+
+            foreach (var subscription in subscriptions)
+            {
+                try
+                {
+                    var saga = WebhookDeliverySaga.CreatePending(@event.Id, subscription.Id);
+                    await _sagaRepository.CreateIdempotentAsync(saga, cancellationToken);
+
+                    _logger.LogInformation(
+                        "Created saga for event {EventId} -> subscription {SubscriptionId}",
+                        @event.Id,
+                        subscription.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Failed to create saga for event {EventId} -> subscription {SubscriptionId}",
+                        @event.Id,
+                        subscription.Id);
+                }
+            }
+
+            _lastProcessedEventId = @event.Id;
+        }
     }
 
     /// <summary>

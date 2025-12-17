@@ -50,9 +50,13 @@ services:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5002
+      - Security__ApiKey=${API_KEY:-}
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=event_ingest_writer;Pwd=${DB_PASSWORD_EVENT_INGEST:-dev_password_event_ingest};
       - Logging__LogLevel__Default=Information
       - Logging__LogLevel__WebhookDelivery=Debug
+    ports:
+      - "5002:5002"
     networks:
       - webhook_network
     logging:
@@ -76,6 +80,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5001
+      - Security__ApiKey=${API_KEY:-}
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=subscription_admin;Pwd=${DB_PASSWORD_SUBSCRIPTION_ADMIN:-dev_password_subscription};
       - Logging__LogLevel__Default=Information
       - Logging__LogLevel__WebhookDelivery=Debug
@@ -195,6 +200,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5003
+      - Security__ApiKey=${API_KEY:-}
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=dead_letter_operator;Pwd=${DB_PASSWORD_DEAD_LETTER_OPERATOR:-dev_password_deadletter};
       - Logging__LogLevel__Default=Information
       - Logging__LogLevel__WebhookDelivery=Debug

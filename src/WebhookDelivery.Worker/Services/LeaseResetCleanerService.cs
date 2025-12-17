@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Dapper;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -23,14 +24,16 @@ public sealed class LeaseResetCleanerService : BackgroundService
 {
     private readonly string _connectionString;
     private readonly ILogger<LeaseResetCleanerService> _logger;
-    private readonly TimeSpan _cleanupInterval = TimeSpan.FromSeconds(30);
+    private readonly TimeSpan _cleanupInterval;
 
     public LeaseResetCleanerService(
-        string connectionString,
+        IConfiguration configuration,
         ILogger<LeaseResetCleanerService> logger)
     {
-        _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
+        _connectionString = configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("Database connection string is not configured");
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _cleanupInterval = TimeSpan.FromSeconds(configuration.GetValue<int>("LeaseCleaner:PollingIntervalSeconds", 30));
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

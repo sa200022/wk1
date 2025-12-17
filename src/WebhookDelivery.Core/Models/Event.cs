@@ -10,6 +10,8 @@ public sealed class Event
 {
     public long Id { get; init; }
 
+    public string? ExternalEventId { get; init; }
+
     public string EventType { get; init; } = null!;
 
     public DateTime CreatedAt { get; init; }
@@ -24,7 +26,7 @@ public sealed class Event
     /// <summary>
     /// Factory method for creating new events
     /// </summary>
-    public static Event Create(string eventType, JsonDocument payload)
+    public static Event Create(string eventType, JsonDocument payload, string? externalEventId = null)
     {
         if (string.IsNullOrWhiteSpace(eventType))
             throw new ArgumentException("Event type cannot be null or empty", nameof(eventType));
@@ -34,6 +36,7 @@ public sealed class Event
 
         return new Event
         {
+            ExternalEventId = externalEventId,
             EventType = eventType,
             Payload = payload,
             CreatedAt = DateTime.UtcNow

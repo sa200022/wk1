@@ -16,7 +16,7 @@ builder.Logging.AddDebug();
 // Register PostgreSQL connection factory
 builder.Services.AddScoped(_ =>
 {
-    var connectionString = builder.Configuration.GetSection("Database:ConnectionString").Value
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
         ?? throw new InvalidOperationException("Database connection string is not configured");
     return new NpgsqlConnection(connectionString);
 });

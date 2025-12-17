@@ -26,7 +26,7 @@ public sealed class SagaOrchestratorService : BackgroundService
     private readonly IDeadLetterRepository _deadLetterRepository;
     private readonly IEventRepository _eventRepository;
     private readonly ILogger<SagaOrchestratorService> _logger;
-    private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);
+    private readonly TimeSpan _pollingInterval;
     private readonly int _maxRetryLimit;
     private readonly TimeSpan _baseDelay;
 
@@ -46,6 +46,7 @@ public sealed class SagaOrchestratorService : BackgroundService
 
         _maxRetryLimit = configuration.GetValue<int>("Saga:MaxRetryLimit", 5);
         _baseDelay = TimeSpan.FromSeconds(configuration.GetValue<int>("Saga:BaseDelaySeconds", 30));
+        _pollingInterval = TimeSpan.FromSeconds(configuration.GetValue<int>("Saga:PollingIntervalSeconds", 5));
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

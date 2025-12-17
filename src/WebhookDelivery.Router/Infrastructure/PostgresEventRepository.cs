@@ -27,7 +27,7 @@ public sealed class PostgresEventRepository : IEventRepository
     public async Task<Event?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
     {
         const string sql = @"
-            SELECT id, event_type, created_at, payload
+            SELECT id, external_event_id, event_type, created_at, payload::text AS payload
             FROM events
             WHERE id = @Id
         ";
@@ -45,22 +45,23 @@ public sealed class PostgresEventRepository : IEventRepository
         return new Event
         {
             Id = result.id,
+            ExternalEventId = result.external_event_id,
             EventType = result.event_type,
             CreatedAt = result.created_at,
-            Payload = JsonSerializer.Deserialize<Dictionary<string, object>>(result.payload)
+            Payload = JsonDocument.Parse((string)result.payload)
         };
     }
 
-    public async Task<IReadOnlyList<Event>> GetUnprocessedEventsAsync(
+    public async Task<IReadOnlyList<Event>> GetAfterIdAsync(
+        long lastSeenEventId,
         int limit,
         CancellationToken cancellationToken = default)
     {
-        // This query would need additional logic to determine "unprocessed"
-        // For now, return recent events ordered by created_at
         const string sql = @"
-            SELECT id, event_type, created_at, payload
+            SELECT id, external_event_id, event_type, created_at, payload::text AS payload
             FROM events
-            ORDER BY created_at DESC
+            WHERE id > @LastId
+            ORDER BY id ASC
             LIMIT @Limit
         ";
 
@@ -68,15 +69,16 @@ public sealed class PostgresEventRepository : IEventRepository
         await connection.OpenAsync(cancellationToken);
 
         var results = await connection.QueryAsync<dynamic>(
-            new CommandDefinition(sql, new { Limit = limit }, cancellationToken: cancellationToken)
+            new CommandDefinition(sql, new { LastId = lastSeenEventId, Limit = limit }, cancellationToken: cancellationToken)
         );
 
         return results.Select(r => new Event
         {
             Id = r.id,
+            ExternalEventId = r.external_event_id,
             EventType = r.event_type,
             CreatedAt = r.created_at,
-            Payload = JsonSerializer.Deserialize<Dictionary<string, object>>(r.payload)
+            Payload = JsonDocument.Parse((string)r.payload)
         }).ToList();
     }
 
@@ -84,5 +86,18 @@ public sealed class PostgresEventRepository : IEventRepository
     {
         // Router should NOT be able to insert events
         throw new InvalidOperationException("Router worker does not have permission to insert events");
+    }
+
+    public async Task<long> GetMaxEventIdAsync(CancellationToken cancellationToken = default)
+    {
+        const string sql = @"SELECT COALESCE(MAX(id), 0) FROM events;";
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var maxId = await connection.ExecuteScalarAsync<long>(
+            new CommandDefinition(sql, cancellationToken: cancellationToken));
+
+        return maxId;
     }
 }

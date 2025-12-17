@@ -19,4 +19,17 @@ public interface IEventRepository
     /// Gets an event by ID (for loading payload snapshots)
     /// </summary>
     Task<Event?> GetByIdAsync(long id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists events after the specified ID for sequential routing/polling
+    /// </summary>
+    Task<IReadOnlyList<Event>> GetAfterIdAsync(
+        long lastSeenEventId,
+        int limit,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the latest event ID (0 if no events exist)
+    /// </summary>
+    Task<long> GetMaxEventIdAsync(CancellationToken cancellationToken = default);
 }

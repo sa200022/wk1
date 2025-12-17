@@ -59,15 +59,27 @@ public sealed class PostgresSagaRepository : ISagaRepository
             )
         );
 
-        // If id is null, saga already exists (idempotent operation)
         if (id.HasValue)
         {
             return saga with { Id = id.Value };
         }
 
-        // Return existing saga
-        var existing = await GetByIdAsync(saga.Id, cancellationToken);
-        return existing ?? saga;
+        const string existingSql = @"
+            SELECT id, event_id, subscription_id, status, attempt_count,
+                   next_attempt_at, final_error_code, created_at, updated_at
+            FROM webhook_delivery_sagas
+            WHERE event_id = @EventId AND subscription_id = @SubscriptionId
+            ORDER BY id DESC
+            LIMIT 1
+        ";
+
+        var existing = await connection.QuerySingleOrDefaultAsync<dynamic>(
+            new CommandDefinition(
+                existingSql,
+                new { saga.EventId, saga.SubscriptionId },
+                cancellationToken: cancellationToken));
+
+        return existing != null ? MapToSaga(existing) : saga;
     }
 
     public async Task<WebhookDeliverySaga?> GetByIdAsync(long id, CancellationToken cancellationToken = default)

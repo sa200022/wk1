@@ -14,6 +14,21 @@ public sealed class SubscriptionController : ControllerBase
         _subscriptionService = subscriptionService;
     }
 
+    [HttpGet]
+    public async Task<IActionResult> ListSubscriptions(
+        [FromQuery] string? eventType,
+        [FromQuery] int limit = 50,
+        [FromQuery] int offset = 0,
+        CancellationToken cancellationToken = default)
+    {
+        var items = await _subscriptionService.GetSubscriptionsAsync(
+            eventType,
+            limit <= 0 ? 50 : limit,
+            Math.Max(offset, 0),
+            cancellationToken);
+        return Ok(items);
+    }
+
     [HttpPost]
     public async Task<IActionResult> CreateSubscription(
         [FromBody] CreateSubscriptionRequest request,
@@ -33,8 +48,28 @@ public sealed class SubscriptionController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetSubscription(long id)
     {
-        // Implementation would call repository directly
-        return Ok();
+        var subscription = await _subscriptionService.GetByIdAsync(id);
+        if (subscription == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(subscription);
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateSubscription(
+        long id,
+        [FromBody] UpdateSubscriptionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var updated = await _subscriptionService.UpdateSubscriptionAsync(
+            id,
+            request.EventType,
+            request.CallbackUrl,
+            request.Active,
+            cancellationToken);
+        return Ok(updated);
     }
 
     [HttpPost("{id}/verify")]
@@ -58,4 +93,5 @@ public sealed class SubscriptionController : ControllerBase
 }
 
 public record CreateSubscriptionRequest(string EventType, string CallbackUrl);
+public record UpdateSubscriptionRequest(string EventType, string CallbackUrl, bool Active);
 public record SetActiveRequest(bool Active);

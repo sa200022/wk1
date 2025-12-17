@@ -35,8 +35,7 @@ public sealed class PostgresDeadLetterRepository : IDeadLetterRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        // Serialize payload snapshot to JSON
-        var payloadJson = JsonSerializer.Serialize(deadLetter.PayloadSnapshot);
+        var payloadJson = deadLetter.PayloadSnapshot.RootElement.GetRawText();
 
         var id = await connection.ExecuteScalarAsync<long>(
             new CommandDefinition(
@@ -60,7 +59,7 @@ public sealed class PostgresDeadLetterRepository : IDeadLetterRepository
     public async Task<DeadLetter?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
     {
         const string sql = @"
-            SELECT id, saga_id, event_id, subscription_id, final_error_code, failed_at, payload_snapshot
+            SELECT id, saga_id, event_id, subscription_id, final_error_code, failed_at, payload_snapshot::text AS payload_snapshot
             FROM dead_letters
             WHERE id = @Id
         ";
@@ -83,7 +82,7 @@ public sealed class PostgresDeadLetterRepository : IDeadLetterRepository
             SubscriptionId = result.subscription_id,
             FinalErrorCode = result.final_error_code,
             FailedAt = result.failed_at,
-            PayloadSnapshot = JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<string, object>>(result.payload_snapshot)
+            PayloadSnapshot = JsonDocument.Parse((string)result.payload_snapshot)
         };
     }
 

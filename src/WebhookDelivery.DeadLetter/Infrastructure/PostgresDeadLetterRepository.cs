@@ -36,7 +36,7 @@ public sealed class PostgresDeadLetterRepository : IDeadLetterRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        var payloadJson = JsonSerializer.Serialize(deadLetter.PayloadSnapshot);
+        var payloadJson = deadLetter.PayloadSnapshot.RootElement.GetRawText();
 
         var id = await connection.ExecuteScalarAsync<long>(
             new CommandDefinition(
@@ -60,7 +60,7 @@ public sealed class PostgresDeadLetterRepository : IDeadLetterRepository
     public async Task<DeadLetterModel?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
     {
         const string sql = @"
-            SELECT id, saga_id, event_id, subscription_id, final_error_code, failed_at, payload_snapshot
+            SELECT id, saga_id, event_id, subscription_id, final_error_code, failed_at, payload_snapshot::text AS payload_snapshot
             FROM dead_letters
             WHERE id = @Id
         ";
@@ -68,15 +68,31 @@ public sealed class PostgresDeadLetterRepository : IDeadLetterRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        return await connection.QuerySingleOrDefaultAsync<DeadLetterModel>(
+        var row = await connection.QuerySingleOrDefaultAsync<dynamic>(
             new CommandDefinition(sql, new { Id = id }, cancellationToken: cancellationToken)
         );
+
+        if (row == null)
+        {
+            return null;
+        }
+
+        return new DeadLetterModel
+        {
+            Id = row.id,
+            SagaId = row.saga_id,
+            EventId = row.event_id,
+            SubscriptionId = row.subscription_id,
+            FinalErrorCode = row.final_error_code,
+            FailedAt = row.failed_at,
+            PayloadSnapshot = JsonDocument.Parse((string)row.payload_snapshot)
+        };
     }
 
     public async Task<DeadLetterModel?> GetBySagaIdAsync(long sagaId, CancellationToken cancellationToken = default)
     {
         const string sql = @"
-            SELECT id, saga_id, event_id, subscription_id, final_error_code, failed_at, payload_snapshot
+            SELECT id, saga_id, event_id, subscription_id, final_error_code, failed_at, payload_snapshot::text AS payload_snapshot
             FROM dead_letters
             WHERE saga_id = @SagaId
         ";
@@ -84,9 +100,25 @@ public sealed class PostgresDeadLetterRepository : IDeadLetterRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        return await connection.QuerySingleOrDefaultAsync<DeadLetterModel>(
+        var row = await connection.QuerySingleOrDefaultAsync<dynamic>(
             new CommandDefinition(sql, new { SagaId = sagaId }, cancellationToken: cancellationToken)
         );
+
+        if (row == null)
+        {
+            return null;
+        }
+
+        return new DeadLetterModel
+        {
+            Id = row.id,
+            SagaId = row.saga_id,
+            EventId = row.event_id,
+            SubscriptionId = row.subscription_id,
+            FinalErrorCode = row.final_error_code,
+            FailedAt = row.failed_at,
+            PayloadSnapshot = JsonDocument.Parse((string)row.payload_snapshot)
+        };
     }
 
     public async Task<IReadOnlyList<DeadLetterModel>> GetAllAsync(
@@ -95,7 +127,7 @@ public sealed class PostgresDeadLetterRepository : IDeadLetterRepository
         CancellationToken cancellationToken = default)
     {
         const string sql = @"
-            SELECT id, saga_id, event_id, subscription_id, final_error_code, failed_at, payload_snapshot
+            SELECT id, saga_id, event_id, subscription_id, final_error_code, failed_at, payload_snapshot::text AS payload_snapshot
             FROM dead_letters
             ORDER BY failed_at DESC
             LIMIT @Limit OFFSET @Offset
@@ -104,13 +136,22 @@ public sealed class PostgresDeadLetterRepository : IDeadLetterRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        var results = await connection.QueryAsync<DeadLetterModel>(
+        var rows = await connection.QueryAsync<dynamic>(
             new CommandDefinition(
                 sql,
                 new { Limit = limit, Offset = offset },
                 cancellationToken: cancellationToken)
         );
 
-        return results.ToList();
+        return rows.Select(row => new DeadLetterModel
+        {
+            Id = row.id,
+            SagaId = row.saga_id,
+            EventId = row.event_id,
+            SubscriptionId = row.subscription_id,
+            FinalErrorCode = row.final_error_code,
+            FailedAt = row.failed_at,
+            PayloadSnapshot = JsonDocument.Parse((string)row.payload_snapshot)
+        }).ToList();
     }
 }

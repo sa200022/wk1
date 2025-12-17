@@ -31,11 +31,13 @@ public sealed class EventIngestionService
     /// </summary>
     /// <param name="eventType">Type of event (e.g., "user.created", "order.completed")</param>
     /// <param name="payload">Immutable JSON payload</param>
+    /// <param name="externalEventId">Optional deduplication key from upstream producer</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Persisted event with ID</returns>
     public async Task<Event> IngestAsync(
         string eventType,
         JsonDocument payload,
+        string? externalEventId = null,
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation(
@@ -45,7 +47,7 @@ public sealed class EventIngestionService
         try
         {
             // Create immutable event
-            var @event = Event.Create(eventType, payload);
+            var @event = Event.Create(eventType, payload, externalEventId);
 
             // Persist to database
             var persistedEvent = await _eventRepository.AppendAsync(@event, cancellationToken);

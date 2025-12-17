@@ -117,4 +117,60 @@ public sealed class SubscriptionService
 
         return updated;
     }
+
+    public Task<Subscription?> GetByIdAsync(
+        long subscriptionId,
+        CancellationToken cancellationToken = default)
+    {
+        return _subscriptionRepository.GetByIdAsync(subscriptionId, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Subscription>> GetSubscriptionsAsync(
+        string? eventType,
+        int limit,
+        int offset,
+        CancellationToken cancellationToken = default)
+    {
+        if (!string.IsNullOrWhiteSpace(eventType))
+        {
+            return await _subscriptionRepository.GetByEventTypeAsync(eventType, cancellationToken);
+        }
+
+        return await _subscriptionRepository.GetAllAsync(limit, offset, cancellationToken);
+    }
+
+    public async Task<Subscription> UpdateSubscriptionAsync(
+        long subscriptionId,
+        string eventType,
+        string callbackUrl,
+        bool active,
+        CancellationToken cancellationToken = default)
+    {
+        var subscription = await _subscriptionRepository.GetByIdAsync(subscriptionId, cancellationToken);
+        if (subscription == null)
+        {
+            throw new InvalidOperationException($"Subscription {subscriptionId} not found");
+        }
+
+        var updated = subscription with
+        {
+            EventType = eventType,
+            CallbackUrl = callbackUrl,
+            Active = active
+        };
+
+        if (!updated.IsCallbackUrlValid())
+        {
+            throw new ArgumentException("Callback URL must be a valid HTTPS endpoint", nameof(callbackUrl));
+        }
+
+        _logger.LogInformation(
+            "Updating subscription {SubscriptionId} -> eventType={EventType}, callback={CallbackUrl}, active={Active}",
+            subscriptionId,
+            eventType,
+            callbackUrl,
+            active);
+
+        return await _subscriptionRepository.UpdateAsync(updated, cancellationToken);
+    }
 }

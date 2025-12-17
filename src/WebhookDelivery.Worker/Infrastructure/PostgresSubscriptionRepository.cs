@@ -65,4 +65,9 @@ public sealed class PostgresSubscriptionRepository : ISubscriptionRepository
         // Worker cannot update subscriptions
         throw new InvalidOperationException("Worker does not have permission to update subscriptions");
     }
+
+    public Task<IReadOnlyList<Subscription>> GetAllAsync(int limit, int offset, CancellationToken cancellationToken = default)
+    {
+        throw new InvalidOperationException("Worker does not list subscriptions");
+    }
 }

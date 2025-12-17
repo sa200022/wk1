@@ -20,4 +20,9 @@ public interface ISubscriptionRepository
     Task<Subscription> UpdateAsync(Subscription subscription, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Subscription>> GetActiveAndVerifiedAsync(string eventType, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<Subscription>> GetAllAsync(
+        int limit,
+        int offset,
+        CancellationToken cancellationToken = default);
 }
