@@ -16,6 +16,9 @@ out/
 .idea/
 *.sln.docstates
 
+# AI assistant local config
+.claude/
+
 # NuGet
 packages/
 *.nupkg

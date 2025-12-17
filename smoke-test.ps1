@@ -4,14 +4,14 @@
 #   2) Publish event
 #   3) Poll DB for saga/job status
 #
-# Prerequisites: postgres running (localhost:5432, user postgres/5512355123k, db webhook_delivery)
+# Prerequisites: postgres running (localhost:5432, user postgres, db webhook_delivery)
 # Services running: subscription-api (5001), event-ingestion (5002)
 
 param(
     [string]$EventType = "user.created",
     [string]$CallbackUrl = "https://httpbin.org/status/200",
     [string]$DbUser = "postgres",
-    [string]$DbPassword = "5512355123k",
+    [string]$DbPassword = $env:POSTGRES_PASSWORD,
     [string]$DbName = "webhook_delivery",
     [string]$DbHost = "localhost",
     [string]$ApiKey = ""
@@ -26,6 +26,10 @@ function Require-Command {
 }
 
 Require-Command "psql"
+
+if (-not $DbPassword -or $DbPassword.Trim() -eq "") {
+    $DbPassword = "dev_password_postgres"
+}
 
 $subscriptionPayload = @{
     eventType   = $EventType

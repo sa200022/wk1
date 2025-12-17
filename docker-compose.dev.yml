@@ -15,9 +15,9 @@ services:
     container_name: webhook_delivery_postgres_dev
     restart: unless-stopped
     environment:
-      POSTGRES_PASSWORD: 5512355123k
-      POSTGRES_USER: postgres
-      POSTGRES_DB: webhook_delivery
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password_postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-webhook_delivery}
     ports:
       - "5432:5432"
     volumes:

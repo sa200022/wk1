@@ -14,7 +14,7 @@
 核心保障：idempotency（unique event/subscription + job attempt）、終態保護（Completed/DeadLettered 不可更新）、`SELECT FOR UPDATE SKIP LOCKED` + lease 防重入。
 
 ## 快速開始（本機）
-1) 準備 PostgreSQL 15（預設帳密：`postgres/5512355123k`，DB=`webhook_delivery`），套用 schema：  
+1) 準備 PostgreSQL 15（請自行設定帳密，DB=`webhook_delivery`），套用 schema：  
 ```bash
 psql -U postgres -c "CREATE DATABASE webhook_delivery;"
 psql -U postgres -d webhook_delivery -f src/WebhookDelivery.Database/Migrations/001_InitialSchema.sql
@@ -24,7 +24,9 @@ psql -U postgres -d webhook_delivery -f src/WebhookDelivery.Database/Migrations/
 ```bash
 docker-compose up -d   # 已暴露 5001/5002/5003
 ```
-若不用 Docker，請在各專案資料夾自行 `dotnet run` 並調整 appsettings 連線字串。
+若不用 Docker，請用環境變數提供連線字串（因為 repo 不硬編碼密碼）：
+- 一鍵啟動：`.\start-all-services.ps1`（會設定 `ConnectionStrings__DefaultConnection` 並開 6 個視窗）
+- 或自行啟動：`$env:ConnectionStrings__DefaultConnection="Host=localhost;Port=5432;Database=webhook_delivery;Username=postgres;Password=...;"` 後在各專案 `dotnet run`
 
 3) 一鍵驗證：  
 ```powershell
@@ -42,7 +44,7 @@ API Key（可選）：在環境變數或 appsettings 設定 `Security:ApiKey`，
 ## 環境變數重點
 | 變數 | 說明 | 範例 |
 | --- | --- | --- |
-| `POSTGRES_PASSWORD` | Postgres 管理者密碼 | `5512355123k` |
+| `POSTGRES_PASSWORD` | Postgres 管理者密碼 | `change_me_in_production` |
 | `DB_PASSWORD_EVENT_INGEST` | event_ingest_writer 密碼 | `dev_password_event_ingest` |
 | `DB_PASSWORD_ROUTER_WORKER` | router_worker 密碼 | `dev_password_router` |
 | `DB_PASSWORD_SAGA_ORCHESTRATOR` | saga_orchestrator 密碼 | `dev_password_orchestrator` |
@@ -60,7 +62,10 @@ API Key（可選）：在環境變數或 appsettings 設定 `Security:ApiKey`，
 ```bash
 dotnet test WebhookDelivery.sln
 ```
-整合測試 17 項聚焦 DB 權限與終態保護。
+整合測試 17 項聚焦 DB 權限與終態保護（需要本機 PostgreSQL）。若未設定測試 DB 連線或無法連線，會自動 Skip。
+
+整合測試需設定：
+- `ConnectionStrings__TestDatabase`（例如 `Host=localhost;Port=5432;Username=postgres;Password=...;Database=postgres`）
 
 ## 專案結構
 ```

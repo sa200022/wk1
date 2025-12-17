@@ -20,8 +20,8 @@ Column	Type	Description
 id	BIGINT PK	Job ID
 saga_id	BIGINT	Parent saga
 status	ENUM	Pending, Leased, Completed, Failed
-lease_until	DATETIME(6)	Lease expiration timestamp
-attempt_at	DATETIME(6)	When job was created
+lease_until	TIMESTAMPTZ	Lease expiration timestamp
+attempt_at	TIMESTAMPTZ	When job was created
 response_status	INT	HTTP status (nullable)
 error_code	VARCHAR(100)	Worker-reported error (nullable)
 Indexes
@@ -177,7 +177,7 @@ saga_id	BIGINT	Original saga (immutable)
 event_id	BIGINT	Event reference
 subscription_id	BIGINT	Subscription reference
 final_error_code	VARCHAR(100)	Final saga error
-failed_at	DATETIME(6)	Time saga entered DLQ
+failed_at	TIMESTAMPTZ	Time saga entered DLQ
 payload_snapshot	JSON	Full event payload snapshot
 Indexes
 

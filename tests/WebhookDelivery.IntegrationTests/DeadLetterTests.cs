@@ -13,7 +13,7 @@ namespace WebhookDelivery.IntegrationTests;
 /// </summary>
 public class DeadLetterTests : TestBase
 {
-    [Fact]
+    [SkippableFact]
     public async Task SagaReachesDeadLettered_ShouldAutoCreateDeadLetterRecord()
     {
         // Arrange: Create saga that reached max retry limit
@@ -61,7 +61,7 @@ public class DeadLetterTests : TestBase
         Assert.Contains("orderId", (string)deadLetter.payload_snapshot);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task DeadLetterRequeue_ShouldCreateNewSagaWithFreshState()
     {
         // Arrange: Create dead-lettered saga with dead letter record
@@ -127,7 +127,7 @@ public class DeadLetterTests : TestBase
         Assert.Equal(5, oldSaga.attempt_count);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task DeadLetterRecord_ShouldContainEventPayloadSnapshot()
     {
         // Arrange: Create event with complex payload
@@ -183,7 +183,7 @@ public class DeadLetterTests : TestBase
         Assert.Contains("109.97", snapshotJson);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task DeadLetter_ShouldBeImmutable()
     {
         // Arrange: Create dead letter record

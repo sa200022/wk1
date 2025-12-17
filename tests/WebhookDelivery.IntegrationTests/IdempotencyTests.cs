@@ -14,7 +14,7 @@ namespace WebhookDelivery.IntegrationTests;
 /// </summary>
 public class IdempotencyTests : TestBase
 {
-    [Fact]
+    [SkippableFact]
     public async Task DuplicateEventIngestion_ShouldNotCreateDuplicateEvents()
     {
         // Arrange: Same external event ID ingested twice
@@ -51,7 +51,7 @@ public class IdempotencyTests : TestBase
         Assert.Equal(1, count);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task DuplicateRouting_ShouldNotCreateDuplicateSagas()
     {
         // Arrange: Same (event_id, subscription_id) routed multiple times
@@ -103,7 +103,7 @@ public class IdempotencyTests : TestBase
         Assert.Equal(1, count);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task DuplicateJobResult_ShouldOnlyUpdateSagaOnce()
     {
         // Arrange: Create saga and job
@@ -151,7 +151,7 @@ public class IdempotencyTests : TestBase
         Assert.Equal("Completed", saga.status);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task WorkerCrashBeforeJobUpdate_ShouldResetViaLeaseCleaner()
     {
         // Arrange: Create job with expired lease (simulating worker crash)
@@ -195,7 +195,7 @@ public class IdempotencyTests : TestBase
         Assert.Null(job.lease_until);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task RetryUntilDeadLetter_ShouldRespectMaxRetryLimit()
     {
         // Arrange: Create saga with attempt_count at max retry limit
@@ -244,7 +244,7 @@ public class IdempotencyTests : TestBase
         Assert.Equal(maxRetryLimit, saga.attempt_count);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Requeue_ShouldCreateNewSaga_NotModifyOldSaga()
     {
         // Arrange: Create dead-lettered saga

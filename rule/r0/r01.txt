@@ -17,10 +17,10 @@ event_id	BIGINT	Links to event
 subscription_id	BIGINT	Target subscription
 status	ENUM	Pending, InProgress, PendingRetry, Completed, DeadLettered
 attempt_count	INT	Total delivery attempts applied by saga
-next_attempt_at	DATETIME(6)	When retry scheduler may create/trigger next job
+next_attempt_at	TIMESTAMPTZ	When retry scheduler may create/trigger next job
 final_error_code	VARCHAR(100)	Error code of the last failed attempt (nullable)
-created_at	DATETIME(6)	UTC
-updated_at	DATETIME(6)	UTC
+created_at	TIMESTAMPTZ	UTC
+updated_at	TIMESTAMPTZ	UTC
 
 2.2 Required Indexes
 

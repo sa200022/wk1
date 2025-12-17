@@ -9,6 +9,20 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     steps:
       - uses: actions/checkout@v4
       - name: Setup .NET
@@ -21,6 +35,8 @@ jobs:
         run: dotnet build WebhookDelivery.sln --configuration Release --no-restore
       - name: Test
         run: dotnet test WebhookDelivery.sln --configuration Release --no-build
+        env:
+          ConnectionStrings__TestDatabase: Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=postgres
       - name: Install dotnet-format
         run: dotnet tool install -g dotnet-format
       - name: Format check

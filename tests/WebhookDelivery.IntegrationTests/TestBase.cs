@@ -25,16 +25,25 @@ public abstract class TestBase : IAsyncLifetime
             .AddEnvironmentVariables()
             .Build();
 
-        // Use test database
-        DatabaseName = $"webhook_delivery_test_{Guid.NewGuid():N}";
-        var baseConnectionString = config.GetConnectionString("TestDatabase")
-            ?? "Host=localhost;Port=5432;Username=postgres;Password=5512355123k;Database=postgres";
+        var baseConnectionString = config.GetConnectionString("TestDatabase");
+        Skip.If(
+            string.IsNullOrWhiteSpace(baseConnectionString),
+            "Integration tests require PostgreSQL. Set ConnectionStrings__TestDatabase (e.g. Host=localhost;Port=5432;Username=postgres;Password=...;Database=postgres).");
 
         var baseBuilder = new NpgsqlConnectionStringBuilder(baseConnectionString);
 
         // Create test database
         await using var connection = new NpgsqlConnection(baseBuilder.ToString());
-        await connection.OpenAsync();
+        try
+        {
+            await connection.OpenAsync();
+        }
+        catch (Exception ex)
+        {
+            Skip.If(true, $"Integration tests skipped: cannot connect to PostgreSQL using ConnectionStrings__TestDatabase ({ex.Message}).");
+        }
+
+        DatabaseName = $"webhook_delivery_test_{Guid.NewGuid():N}";
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = $"CREATE DATABASE \"{DatabaseName}\" WITH TEMPLATE = template1;";
         await cmd.ExecuteNonQueryAsync();

@@ -11,7 +11,7 @@ Event Store 是不可修改、只能追加的事件日誌，用於記錄所有�
 Column	Type	Description
 id	BIGINT PK	Auto-increment event ID
 event_type	VARCHAR(100)	Event classification
-created_at	DATETIME(6)	Timestamp (UTC)
+created_at	TIMESTAMPTZ	Timestamp (UTC)
 payload	JSON	Immutable event body
 Indexes
 
@@ -51,10 +51,10 @@ Column	Type	Description
 id	BIGINT PK	Subscription ID
 event_type	VARCHAR(100)	Subscribed event type
 callback_url	VARCHAR(500)	HTTPS endpoint
-active	TINYINT(1)	Soft enable/disable
-verified	TINYINT(1)	Callback URL verification status
-created_at	DATETIME(6)	UTC
-updated_at	DATETIME(6)	UTC
+active	BOOLEAN	Soft enable/disable
+verified	BOOLEAN	Callback URL verification status
+created_at	TIMESTAMPTZ	UTC
+updated_at	TIMESTAMPTZ	UTC
 Indexes
 
 INDEX idx_sub_event_type (event_type)

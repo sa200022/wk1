@@ -14,7 +14,7 @@ namespace WebhookDelivery.IntegrationTests;
 /// </summary>
 public class PermissionTests : TestBase
 {
-    [Fact]
+    [SkippableFact]
     public async Task TerminalStateProtection_CompletedSaga_CannotBeUpdated()
     {
         // Arrange: Create saga in Completed state
@@ -53,7 +53,7 @@ public class PermissionTests : TestBase
         Assert.Equal("Completed", saga.status); // Status unchanged
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task TerminalStateProtection_DeadLetteredSaga_CannotBeUpdated()
     {
         // Arrange: Create saga in DeadLettered state
@@ -93,7 +93,7 @@ public class PermissionTests : TestBase
         Assert.Equal(5, saga.attempt_count);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task RouterWorker_CanInsertSaga_CannotUpdateSaga()
     {
         // Arrange: Create event and subscription for routing
@@ -156,7 +156,7 @@ public class PermissionTests : TestBase
         Assert.Equal("Pending", saga.status); // Should remain Pending in production
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task JobWorker_CanUpdateJob_CannotUpdateSaga()
     {
         // Arrange: Create saga and job
@@ -219,7 +219,7 @@ public class PermissionTests : TestBase
         Assert.Equal("InProgress", saga.status);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task EventIngestWriter_CanInsertEvent_CannotUpdateEvent()
     {
         // Arrange: Prepare event data
@@ -268,7 +268,7 @@ public class PermissionTests : TestBase
         Assert.Contains("\"orderId\": 111", originalPayload);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task DeadLetterOperator_CanInsertSaga_CannotUpdateSaga()
     {
         // Arrange: Create dead-lettered saga for requeue
@@ -326,7 +326,7 @@ public class PermissionTests : TestBase
         Assert.Equal(5, oldSaga.attempt_count);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task OnlySagaOrchestrator_CanUpdateSaga()
     {
         // Arrange: Create saga in various states

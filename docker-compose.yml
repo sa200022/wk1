@@ -19,7 +19,7 @@ services:
     container_name: webhook_delivery_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-5512355123k}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password_postgres}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_DB: webhook_delivery
     ports:

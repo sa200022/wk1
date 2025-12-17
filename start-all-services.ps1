@@ -1,94 +1,183 @@
-# Webhook Delivery System - 啟動所有服務
-# 使用方式: .\start-all-services.ps1
+# Webhook Delivery System - Start all services (local, no Docker)
+# Usage examples:
+#   $env:POSTGRES_PASSWORD="your_password"; .\start-all-services.ps1
+#   .\start-all-services.ps1 -DbPassword "your_password"
+#   .\start-all-services.ps1 -UseDevRoles
 
-Write-Host "🚀 啟動 Webhook Delivery System..." -ForegroundColor Green
-Write-Host ""
-
-# 檢查 PostgreSQL 是否運行
-Write-Host "📊 檢查 PostgreSQL 狀態..." -ForegroundColor Yellow
-$pgService = Get-Service -Name "postgresql*" -ErrorAction SilentlyContinue
-
-if ($null -eq $pgService) {
-    Write-Host "❌ PostgreSQL 服務未找到！請先安裝 PostgreSQL。" -ForegroundColor Red
-    Write-Host "   下載位置: https://www.postgresql.org/download/windows/" -ForegroundColor Cyan
-    exit 1
-}
-
-if ($pgService.Status -ne "Running") {
-    Write-Host "⚠️  PostgreSQL 服務未運行，正在啟動..." -ForegroundColor Yellow
-    Start-Service $pgService.Name
-    Start-Sleep -Seconds 2
-}
-
-Write-Host "✅ PostgreSQL 正在運行" -ForegroundColor Green
-Write-Host ""
-
-# 檢查資料庫是否存在
-Write-Host "📦 檢查資料庫 'webhook_delivery'..." -ForegroundColor Yellow
-$dbCheck = & psql -U postgres -lqt 2>$null | Select-String -Pattern "webhook_delivery"
-
-if ($null -eq $dbCheck) {
-    Write-Host "⚠️  資料庫不存在，請先執行以下命令建立:" -ForegroundColor Yellow
-    Write-Host "   psql -U postgres -c `"CREATE DATABASE webhook_delivery;`"" -ForegroundColor Cyan
-    Write-Host "   psql -U postgres -d webhook_delivery -f src/WebhookDelivery.Database/Migrations/001_InitialSchema.sql" -ForegroundColor Cyan
-    Write-Host ""
-    $createDb = Read-Host "是否現在建立資料庫？(y/n)"
-
-    if ($createDb -eq "y") {
-        Write-Host "正在建立資料庫..." -ForegroundColor Yellow
-        & psql -U postgres -c "CREATE DATABASE webhook_delivery;"
-        & psql -U postgres -d webhook_delivery -f "src/WebhookDelivery.Database/Migrations/001_InitialSchema.sql"
-        Write-Host "✅ 資料庫建立完成" -ForegroundColor Green
-    } else {
-        exit 1
-    }
-}
-
-Write-Host "✅ 資料庫存在" -ForegroundColor Green
-Write-Host ""
-
-# 啟動所有服務
-Write-Host "🎯 啟動所有服務 (6個視窗)..." -ForegroundColor Green
-Write-Host ""
-
-$services = @(
-    @{Name="SubscriptionApi"; Path="src\WebhookDelivery.SubscriptionApi"; Port=5001; Color="Cyan"}
-    @{Name="DeadLetterApi"; Path="src\WebhookDelivery.DeadLetter"; Port=5003; Color="Magenta"}
-    @{Name="EventIngestion"; Path="src\WebhookDelivery.EventIngestion"; Port="-"; Color="Yellow"}
-    @{Name="Router"; Path="src\WebhookDelivery.Router"; Port="-"; Color="Green"}
-    @{Name="Orchestrator"; Path="src\WebhookDelivery.Orchestrator"; Port="-"; Color="Blue"}
-    @{Name="Worker"; Path="src\WebhookDelivery.Worker"; Port="-"; Color="White"}
+param(
+    [string]$DbHost = "localhost",
+    [int]$DbPort = 5432,
+    [string]$DbName = "webhook_delivery",
+    [string]$DbUser = "postgres",
+    [string]$DbPassword = $env:POSTGRES_PASSWORD,
+    [switch]$UseDevRoles,
+    [switch]$SkipDbSetup,
+    [string]$ApiKey = $env:API_KEY
 )
 
-foreach ($service in $services) {
-    $title = "Webhook - $($service.Name)"
+function Require-Command {
+    param([string]$Name)
+    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
+        throw "Required command '$Name' not found. Please install it and retry."
+    }
+}
 
-    if ($service.Port -ne "-") {
-        Write-Host "  🌐 $($service.Name) (Port: $($service.Port))" -ForegroundColor $service.Color
-    } else {
-        Write-Host "  ⚙️  $($service.Name)" -ForegroundColor $service.Color
+function Ensure-DbPassword {
+    param([string]$Value)
+    if ($Value -and $Value.Trim() -ne "") { return $Value }
+    $prompted = Read-Host "PostgreSQL password (leave empty to use 'dev_password_postgres')"
+    if ($prompted -and $prompted.Trim() -ne "") { return $prompted }
+    return "dev_password_postgres"
+}
+
+function Psql {
+    param(
+        [string]$Database,
+        [string]$Sql
+    )
+    $env:PGPASSWORD = $DbPassword
+    try {
+        & psql -h $DbHost -p $DbPort -U $DbUser -d $Database -t -A -c $Sql
+    }
+    finally {
+        Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
+    }
+}
+
+function Psql-File {
+    param(
+        [string]$Database,
+        [string]$Path
+    )
+    $env:PGPASSWORD = $DbPassword
+    try {
+        & psql -h $DbHost -p $DbPort -U $DbUser -d $Database -f $Path
+    }
+    finally {
+        Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
+    }
+}
+
+$ErrorActionPreference = "Stop"
+
+Require-Command "dotnet"
+Require-Command "psql"
+
+$DbPassword = Ensure-DbPassword $DbPassword
+
+Write-Host "Starting Webhook Delivery System (no Docker)..." -ForegroundColor Green
+Write-Host "DB: Host=$DbHost Port=$DbPort Db=$DbName User=$DbUser UseDevRoles=$UseDevRoles" -ForegroundColor DarkGray
+Write-Host ""
+
+if (-not $SkipDbSetup) {
+    Write-Host "Checking database..." -ForegroundColor Yellow
+
+    $dbExists = Psql -Database "postgres" -Sql "SELECT 1 FROM pg_database WHERE datname = '$DbName';"
+    if (-not $dbExists -or $dbExists.Trim() -eq "") {
+        Write-Host "Database '$DbName' does not exist. Creating..." -ForegroundColor Yellow
+        Psql -Database "postgres" -Sql "CREATE DATABASE ""$DbName"";"
     }
 
-    Start-Process powershell -ArgumentList @(
-        "-NoExit",
-        "-Command",
+    Write-Host "Applying schema migration..." -ForegroundColor Yellow
+    Psql-File -Database $DbName -Path "src/WebhookDelivery.Database/Migrations/001_InitialSchema.sql"
+
+    if ($UseDevRoles) {
+        Write-Host "Applying DEV roles/grants (creates dev_password_* logins)..." -ForegroundColor Yellow
+        Psql-File -Database $DbName -Path "src/WebhookDelivery.Database/Scripts/002_DatabaseRoles_Development.sql"
+    }
+
+    Write-Host "Database ready." -ForegroundColor Green
+    Write-Host ""
+}
+
+function Build-ConnString {
+    param(
+        [string]$Host,
+        [int]$Port,
+        [string]$Database,
+        [string]$Username,
+        [string]$Password
+    )
+    return "Host=$Host;Port=$Port;Database=$Database;Username=$Username;Password=$Password;"
+}
+
+function Service-ConnString {
+    param([string]$ServiceName)
+
+    if (-not $UseDevRoles) {
+        return Build-ConnString -Host $DbHost -Port $DbPort -Database $DbName -Username $DbUser -Password $DbPassword
+    }
+
+    $passwordMap = @{
+        "EventIngestion"   = ($env:DB_PASSWORD_EVENT_INGEST)
+        "SubscriptionApi"  = ($env:DB_PASSWORD_SUBSCRIPTION_ADMIN)
+        "Router"           = ($env:DB_PASSWORD_ROUTER_WORKER)
+        "Orchestrator"     = ($env:DB_PASSWORD_SAGA_ORCHESTRATOR)
+        "Worker"           = ($env:DB_PASSWORD_JOB_WORKER)
+        "DeadLetterApi"    = ($env:DB_PASSWORD_DEAD_LETTER_OPERATOR)
+    }
+
+    $userMap = @{
+        "EventIngestion"   = "event_ingest_writer"
+        "SubscriptionApi"  = "subscription_admin"
+        "Router"           = "router_worker"
+        "Orchestrator"     = "saga_orchestrator"
+        "Worker"           = "job_worker"
+        "DeadLetterApi"    = "dead_letter_operator"
+    }
+
+    $fallbackPasswordMap = @{
+        "EventIngestion"   = "dev_password_event_ingest"
+        "SubscriptionApi"  = "dev_password_subscription"
+        "Router"           = "dev_password_router"
+        "Orchestrator"     = "dev_password_orchestrator"
+        "Worker"           = "dev_password_worker"
+        "DeadLetterApi"    = "dev_password_deadletter"
+    }
+
+    $password = $passwordMap[$ServiceName]
+    if (-not $password -or $password.Trim() -eq "") { $password = $fallbackPasswordMap[$ServiceName] }
+    $username = $userMap[$ServiceName]
+    return Build-ConnString -Host $DbHost -Port $DbPort -Database $DbName -Username $username -Password $password
+}
+
+$services = @(
+    @{ Name = "SubscriptionApi"; Path = "src\\WebhookDelivery.SubscriptionApi"; Url = "http://localhost:5001"; Color = "Cyan" }
+    @{ Name = "EventIngestion";  Path = "src\\WebhookDelivery.EventIngestion";  Url = "http://localhost:5002"; Color = "Yellow" }
+    @{ Name = "DeadLetterApi";   Path = "src\\WebhookDelivery.DeadLetter";      Url = "http://localhost:5003"; Color = "Magenta" }
+    @{ Name = "Router";          Path = "src\\WebhookDelivery.Router";          Url = ""; Color = "Green" }
+    @{ Name = "Orchestrator";    Path = "src\\WebhookDelivery.Orchestrator";    Url = ""; Color = "Blue" }
+    @{ Name = "Worker";          Path = "src\\WebhookDelivery.Worker";          Url = ""; Color = "White" }
+)
+
+Write-Host "Launching services (each in its own PowerShell window)..." -ForegroundColor Green
+Write-Host ""
+
+foreach ($service in $services) {
+    $title = "WebhookDelivery - $($service.Name)"
+    $conn = Service-ConnString $service.Name
+    $apiKey = $ApiKey
+
+    $runCommand =
         "& {" +
         "`$host.ui.RawUI.WindowTitle = '$title';" +
         "cd '$($service.Path)';" +
-        "Write-Host '啟動 $($service.Name)...' -ForegroundColor $($service.Color);" +
+        "`$env:ASPNETCORE_ENVIRONMENT = 'Development';" +
+        "if ('$($service.Url)' -ne '') { `$env:ASPNETCORE_URLS = '$($service.Url)'; }" +
+        "`$env:ConnectionStrings__DefaultConnection = '$conn';" +
+        "if ('$apiKey' -ne '') { `$env:Security__ApiKey = '$apiKey'; }" +
+        "Write-Host 'Starting $($service.Name)...' -ForegroundColor $($service.Color);" +
         "dotnet run" +
         "}"
-    )
 
-    Start-Sleep -Milliseconds 500
+    Start-Process powershell -ArgumentList @("-NoExit", "-Command", $runCommand)
+    Start-Sleep -Milliseconds 400
 }
 
 Write-Host ""
-Write-Host "✅ 所有服務已啟動！" -ForegroundColor Green
+Write-Host "Endpoints:" -ForegroundColor Cyan
+Write-Host "  Subscription API: http://localhost:5001/swagger" -ForegroundColor White
+Write-Host "  Event Ingestion:  http://localhost:5002/swagger (and POST /api/events)" -ForegroundColor White
+Write-Host "  Dead Letter API:  http://localhost:5003/swagger" -ForegroundColor White
 Write-Host ""
-Write-Host "📝 API 端點:" -ForegroundColor Cyan
-Write-Host "   • Subscription API: http://localhost:5001/swagger" -ForegroundColor White
-Write-Host "   • Dead Letter API:  http://localhost:5003/swagger" -ForegroundColor White
-Write-Host ""
-Write-Host "⏹️  停止所有服務: 關閉所有 PowerShell 視窗" -ForegroundColor Yellow
-Write-Host ""
+Write-Host "Tip: Run smoke test: .\\smoke-test.ps1 (set POSTGRES_PASSWORD / API_KEY if needed)" -ForegroundColor DarkGray
