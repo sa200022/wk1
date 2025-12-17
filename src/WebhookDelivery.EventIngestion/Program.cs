@@ -7,12 +7,14 @@ using WebhookDelivery.Core.Repositories;
 using WebhookDelivery.EventIngestion.Infrastructure;
 using WebhookDelivery.EventIngestion.Services;
 using System.Text.Json;
+using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure logging
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
+builder.Logging.AddJsonConsole();
 builder.Logging.AddDebug();
 
 builder.Services.AddEndpointsApiExplorer();
@@ -44,6 +46,15 @@ if (!string.IsNullOrWhiteSpace(apiKey))
 {
     app.Use(async (context, next) =>
     {
+        var path = context.Request.Path.Value ?? string.Empty;
+        if (path.StartsWith("/health", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/metrics", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase))
+        {
+            await next();
+            return;
+        }
+
         if (!context.Request.Headers.TryGetValue("X-Api-Key", out var provided) ||
             provided != apiKey)
         {
@@ -55,6 +66,9 @@ if (!string.IsNullOrWhiteSpace(apiKey))
         await next();
     });
 }
+
+app.UseHttpMetrics();
+app.MapMetrics("/metrics");
 
 app.MapPost("/api/events", async (
     IngestEventRequest request,

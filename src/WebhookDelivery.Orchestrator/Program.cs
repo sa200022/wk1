@@ -11,6 +11,7 @@ var builder = Host.CreateApplicationBuilder(args);
 // Configure logging
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
+builder.Logging.AddJsonConsole();
 builder.Logging.AddDebug();
 
 // Register PostgreSQL connection factory
@@ -26,6 +27,12 @@ builder.Services.AddScoped<ISagaRepository, PostgresSagaRepository>();
 builder.Services.AddScoped<IJobRepository, PostgresJobRepository>();
 builder.Services.AddScoped<IEventRepository, PostgresEventRepository>();
 builder.Services.AddScoped<IDeadLetterRepository, PostgresDeadLetterRepository>();
+builder.Services.AddHostedService(provider =>
+{
+    var logger = provider.GetRequiredService<ILogger<HealthServer>>();
+    var port = builder.Configuration.GetValue<int>("Health:Port", 6002);
+    return new HealthServer(logger, port);
+});
 
 // Register services
 builder.Services.AddHostedService<SagaOrchestratorService>();

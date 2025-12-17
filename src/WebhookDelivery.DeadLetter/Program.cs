@@ -6,8 +6,14 @@ using Npgsql;
 using WebhookDelivery.Core.Repositories;
 using WebhookDelivery.DeadLetter.Infrastructure;
 using WebhookDelivery.DeadLetter.Services;
+using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddJsonConsole();
+builder.Logging.AddDebug();
 
 // Add services to the container
 builder.Services.AddControllers();
@@ -44,6 +50,15 @@ if (!string.IsNullOrWhiteSpace(apiKey))
 {
     app.Use(async (context, next) =>
     {
+        var path = context.Request.Path.Value ?? string.Empty;
+        if (path.StartsWith("/health", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/metrics", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase))
+        {
+            await next();
+            return;
+        }
+
         if (!context.Request.Headers.TryGetValue("X-Api-Key", out var provided) ||
             provided != apiKey)
         {
@@ -56,8 +71,12 @@ if (!string.IsNullOrWhiteSpace(apiKey))
     });
 }
 
+app.UseHttpMetrics();
+app.MapMetrics("/metrics");
+
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
+app.MapGet("/health", () => Results.Ok("ok"));
 
 await app.RunAsync();

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using WebhookDelivery.Core.Models;
 using WebhookDelivery.Core.Repositories;
+using WebhookDelivery.Router.Infrastructure;
 
 namespace WebhookDelivery.Router.Services;
 
@@ -19,6 +20,7 @@ public sealed class RoutingWorkerService : BackgroundService
     private readonly IEventRepository _eventRepository;
     private readonly ISubscriptionRepository _subscriptionRepository;
     private readonly ISagaRepository _sagaRepository;
+    private readonly RouterStateRepository _stateRepository;
     private readonly ILogger<RoutingWorkerService> _logger;
     private readonly TimeSpan _pollingInterval;
     private readonly int _batchSize;
@@ -29,12 +31,14 @@ public sealed class RoutingWorkerService : BackgroundService
         IEventRepository eventRepository,
         ISubscriptionRepository subscriptionRepository,
         ISagaRepository sagaRepository,
+        RouterStateRepository stateRepository,
         IConfiguration configuration,
         ILogger<RoutingWorkerService> logger)
     {
         _eventRepository = eventRepository ?? throw new ArgumentNullException(nameof(eventRepository));
         _subscriptionRepository = subscriptionRepository ?? throw new ArgumentNullException(nameof(subscriptionRepository));
         _sagaRepository = sagaRepository ?? throw new ArgumentNullException(nameof(sagaRepository));
+        _stateRepository = stateRepository ?? throw new ArgumentNullException(nameof(stateRepository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         _pollingInterval = TimeSpan.FromSeconds(configuration.GetValue<int>("Routing:PollingIntervalSeconds", 5));
@@ -46,7 +50,12 @@ public sealed class RoutingWorkerService : BackgroundService
         _logger.LogInformation("Routing worker started");
 
         // Initialize last processed event ID to the current max to avoid replaying historical events on first start
-        _lastProcessedEventId = await _eventRepository.GetMaxEventIdAsync(stoppingToken);
+        _lastProcessedEventId = await _stateRepository.GetLastProcessedEventIdAsync(stoppingToken);
+        if (_lastProcessedEventId == 0)
+        {
+            _lastProcessedEventId = await _eventRepository.GetMaxEventIdAsync(stoppingToken);
+        }
+
         _logger.LogInformation("Router initialized at last event ID {LastEventId}", _lastProcessedEventId);
 
         while (!stoppingToken.IsCancellationRequested)
@@ -119,6 +128,7 @@ public sealed class RoutingWorkerService : BackgroundService
             }
 
             _lastProcessedEventId = @event.Id;
+            await _stateRepository.SaveLastProcessedEventIdAsync(_lastProcessedEventId, cancellationToken);
         }
     }
 

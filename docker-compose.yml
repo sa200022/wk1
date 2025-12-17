@@ -52,13 +52,19 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5002
       - Security__ApiKey=${API_KEY:-}
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=event_ingest_writer;Pwd=${DB_PASSWORD_EVENT_INGEST:-dev_password_event_ingest};
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=event_ingest_writer;Password=${DB_PASSWORD_EVENT_INGEST:-dev_password_event_ingest};
       - Logging__LogLevel__Default=Information
       - Logging__LogLevel__WebhookDelivery=Debug
     ports:
       - "5002:5002"
     networks:
       - webhook_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     logging:
       driver: "json-file"
       options:
@@ -81,7 +87,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5001
       - Security__ApiKey=${API_KEY:-}
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=subscription_admin;Pwd=${DB_PASSWORD_SUBSCRIPTION_ADMIN:-dev_password_subscription};
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=subscription_admin;Password=${DB_PASSWORD_SUBSCRIPTION_ADMIN:-dev_password_subscription};
       - Logging__LogLevel__Default=Information
       - Logging__LogLevel__WebhookDelivery=Debug
     ports:
@@ -114,13 +120,20 @@ services:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=router_worker;Pwd=${DB_PASSWORD_ROUTER_WORKER:-dev_password_router};
-      - RoutingWorkerSettings__PollingIntervalSeconds=5
-      - RoutingWorkerSettings__BatchSize=100
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=router_worker;Password=${DB_PASSWORD_ROUTER_WORKER:-dev_password_router};
+      - Health__Port=6001
+      - Routing__PollingIntervalSeconds=5
+      - Routing__BatchSize=100
       - Logging__LogLevel__Default=Information
       - Logging__LogLevel__WebhookDelivery=Debug
     networks:
       - webhook_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6001/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     logging:
       driver: "json-file"
       options:
@@ -141,14 +154,21 @@ services:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=saga_orchestrator;Pwd=${DB_PASSWORD_SAGA_ORCHESTRATOR:-dev_password_orchestrator};
-      - SagaOrchestratorSettings__PollingIntervalSeconds=3
-      - SagaOrchestratorSettings__MaxRetryLimit=5
-      - SagaOrchestratorSettings__BaseDelaySeconds=30
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=saga_orchestrator;Password=${DB_PASSWORD_SAGA_ORCHESTRATOR:-dev_password_orchestrator};
+      - Health__Port=6002
+      - Saga__PollingIntervalSeconds=3
+      - Saga__MaxRetryLimit=5
+      - Saga__BaseDelaySeconds=30
       - Logging__LogLevel__Default=Information
       - Logging__LogLevel__WebhookDelivery=Debug
     networks:
       - webhook_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6002/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     logging:
       driver: "json-file"
       options:
@@ -169,16 +189,23 @@ services:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=job_worker;Pwd=${DB_PASSWORD_JOB_WORKER:-dev_password_worker};
-      - JobWorkerSettings__PollingIntervalSeconds=2
-      - JobWorkerSettings__BatchSize=10
-      - JobWorkerSettings__LeaseDurationSeconds=60
-      - JobWorkerSettings__HttpTimeoutSeconds=30
-      - LeaseResetCleanerSettings__CleanupIntervalSeconds=30
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=job_worker;Password=${DB_PASSWORD_JOB_WORKER:-dev_password_worker};
+      - Health__Port=6003
+      - Worker__PollingIntervalSeconds=2
+      - Worker__BatchSize=10
+      - Worker__LeaseDurationSeconds=60
+      - Worker__HttpTimeoutSeconds=30
+      - LeaseCleaner__PollingIntervalSeconds=30
       - Logging__LogLevel__Default=Information
       - Logging__LogLevel__WebhookDelivery=Debug
     networks:
       - webhook_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6003/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     logging:
       driver: "json-file"
       options:
@@ -201,7 +228,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5003
       - Security__ApiKey=${API_KEY:-}
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=dead_letter_operator;Pwd=${DB_PASSWORD_DEAD_LETTER_OPERATOR:-dev_password_deadletter};
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=webhook_delivery;Username=dead_letter_operator;Password=${DB_PASSWORD_DEAD_LETTER_OPERATOR:-dev_password_deadletter};
       - Logging__LogLevel__Default=Information
       - Logging__LogLevel__WebhookDelivery=Debug
     ports:

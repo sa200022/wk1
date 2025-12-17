@@ -24,6 +24,11 @@ RUN dotnet publish "WebhookDelivery.EventIngestion.csproj" -c Release -o /app/pu
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
+# Needed for docker-compose healthchecks
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create non-root user for security
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 USER appuser

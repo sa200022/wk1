@@ -39,6 +39,23 @@ docker-compose up -d   # 已暴露 5001/5002/5003
 
 API Key（可選）：在環境變數或 appsettings 設定 `Security:ApiKey`，啟用後呼叫需帶 `X-Api-Key`，未設定則不驗證。
 
+## 環境變數重點
+| 變數 | 說明 | 範例 |
+| --- | --- | --- |
+| `POSTGRES_PASSWORD` | Postgres 管理者密碼 | `5512355123k` |
+| `DB_PASSWORD_EVENT_INGEST` | event_ingest_writer 密碼 | `dev_password_event_ingest` |
+| `DB_PASSWORD_ROUTER_WORKER` | router_worker 密碼 | `dev_password_router` |
+| `DB_PASSWORD_SAGA_ORCHESTRATOR` | saga_orchestrator 密碼 | `dev_password_orchestrator` |
+| `DB_PASSWORD_JOB_WORKER` | job_worker 密碼 | `dev_password_worker` |
+| `DB_PASSWORD_DEAD_LETTER_OPERATOR` | dead_letter_operator 密碼 | `dev_password_deadletter` |
+| `DB_PASSWORD_SUBSCRIPTION_ADMIN` | subscription_admin 密碼 | `dev_password_subscription` |
+| `API_KEY` | （可選）HTTP API 金鑰，啟用時呼叫需帶 `X-Api-Key` | 空值代表停用 |
+| `Worker__WebhookSigningKey` | （可選）Worker 發送 webhook 時的 HMAC-SHA256 簽章金鑰 | 空值代表不簽章 |
+
+## Webhook 簽章（可選）
+當設定 `Worker__WebhookSigningKey` 後，Worker 會對送出的 JSON body 做 HMAC-SHA256，並加上 header `X-Webhook-Signature`（hex）。
+接收端可用同一把 key 重新計算並比對簽章，用來防止 payload 被竄改（仍建議搭配 HTTPS）。
+
 ## 測試
 ```bash
 dotnet test WebhookDelivery.sln

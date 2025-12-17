@@ -11,6 +11,7 @@
 DROP TABLE IF EXISTS dead_letters CASCADE;
 DROP TABLE IF EXISTS webhook_delivery_jobs CASCADE;
 DROP TABLE IF EXISTS webhook_delivery_sagas CASCADE;
+DROP TABLE IF EXISTS router_offsets CASCADE;
 DROP TABLE IF EXISTS subscriptions CASCADE;
 DROP TABLE IF EXISTS events CASCADE;
 DROP TYPE IF EXISTS saga_status_enum;
@@ -46,6 +47,15 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 );
 CREATE INDEX IF NOT EXISTS idx_sub_event_type ON subscriptions (event_type);
 CREATE INDEX IF NOT EXISTS idx_sub_active ON subscriptions (active);
+
+-- ============================================================================
+-- Table: router_offsets
+-- Purpose: Persist router progress (last processed event id)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS router_offsets (
+    id INT PRIMARY KEY DEFAULT 1,
+    last_processed_event_id BIGINT NOT NULL DEFAULT 0
+);
 
 -- ============================================================================
 -- Table: webhook_delivery_sagas

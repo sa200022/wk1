@@ -1,5 +1,6 @@
 using System;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -37,6 +38,7 @@ public sealed class JobWorkerService : BackgroundService
     private readonly TimeSpan _leaseDuration;
     private readonly TimeSpan _pollingInterval;
     private readonly int _batchSize;
+    private readonly string? _webhookSigningKey;
 
     public JobWorkerService(
         IJobRepository jobRepository,
@@ -57,6 +59,7 @@ public sealed class JobWorkerService : BackgroundService
         _leaseDuration = TimeSpan.FromSeconds(configuration.GetValue<int>("Worker:LeaseDurationSeconds", 60));
         _pollingInterval = TimeSpan.FromSeconds(configuration.GetValue<int>("Worker:PollingIntervalSeconds", 2));
         _batchSize = configuration.GetValue<int>("Worker:BatchSize", 10);
+        _webhookSigningKey = configuration.GetValue<string>("Worker:WebhookSigningKey");
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -111,37 +114,37 @@ public sealed class JobWorkerService : BackgroundService
 
         try
         {
-        // Step 2: Load event and subscription data
-        var saga = await _sagaRepository.GetByIdAsync(job.SagaId, cancellationToken);
-        if (saga == null)
-        {
-            _logger.LogError("Saga {SagaId} not found for job {JobId}", job.SagaId, job.Id);
-            await MarkJobFailedAsync(leased, "SAGA_NOT_FOUND", cancellationToken);
-            return;
-        }
+            // Step 2: Load event and subscription data
+            var saga = await _sagaRepository.GetByIdAsync(job.SagaId, cancellationToken);
+            if (saga == null)
+            {
+                _logger.LogError("Saga {SagaId} not found for job {JobId}", job.SagaId, job.Id);
+                await MarkJobFailedAsync(leased, "SAGA_NOT_FOUND", cancellationToken);
+                return;
+            }
 
-        var @event = await _eventRepository.GetByIdAsync(saga.EventId, cancellationToken);
-        if (@event == null)
-        {
-            _logger.LogError("Event {EventId} not found for job {JobId}", saga.EventId, job.Id);
-            await MarkJobFailedAsync(leased, "EVENT_NOT_FOUND", cancellationToken);
-            return;
-        }
+            var @event = await _eventRepository.GetByIdAsync(saga.EventId, cancellationToken);
+            if (@event == null)
+            {
+                _logger.LogError("Event {EventId} not found for job {JobId}", saga.EventId, job.Id);
+                await MarkJobFailedAsync(leased, "EVENT_NOT_FOUND", cancellationToken);
+                return;
+            }
 
-        var subscription = await _subscriptionRepository.GetByIdAsync(saga.SubscriptionId, cancellationToken);
-        if (subscription == null)
-        {
-            _logger.LogError("Subscription {SubscriptionId} not found for job {JobId}", saga.SubscriptionId, job.Id);
-            await MarkJobFailedAsync(leased, "SUBSCRIPTION_NOT_FOUND", cancellationToken);
-            return;
-        }
+            var subscription = await _subscriptionRepository.GetByIdAsync(saga.SubscriptionId, cancellationToken);
+            if (subscription == null)
+            {
+                _logger.LogError("Subscription {SubscriptionId} not found for job {JobId}", saga.SubscriptionId, job.Id);
+                await MarkJobFailedAsync(leased, "SUBSCRIPTION_NOT_FOUND", cancellationToken);
+                return;
+            }
 
-        // Step 3: Execute HTTP delivery
-        var result = await ExecuteWebhookDeliveryAsync(
-            job.SagaId,
-            subscription.CallbackUrl,
-            @event.Payload,
-            cancellationToken);
+            // Step 3: Execute HTTP delivery
+            var result = await ExecuteWebhookDeliveryAsync(
+                job.SagaId,
+                subscription.CallbackUrl,
+                @event.Payload,
+                cancellationToken);
 
             // Step 4: Report result
             if (result.Success)
@@ -227,6 +230,14 @@ public sealed class JobWorkerService : BackgroundService
                 Encoding.UTF8,
                 "application/json");
 
+            if (!string.IsNullOrWhiteSpace(_webhookSigningKey))
+            {
+                var signature = ComputeHmacSignature(
+                    _webhookSigningKey,
+                    await content.ReadAsStringAsync(cancellationToken));
+                content.Headers.Add("X-Webhook-Signature", signature);
+            }
+
             var response = await httpClient.PostAsync(callbackUrl, content, cancellationToken);
 
             if (response.IsSuccessStatusCode)
@@ -268,5 +279,20 @@ public sealed class JobWorkerService : BackgroundService
         public bool Success { get; init; }
         public int? HttpStatusCode { get; init; }
         public string? ErrorCode { get; init; }
+    }
+
+    private static string ComputeHmacSignature(string key, string payload)
+    {
+        var keyBytes = Encoding.UTF8.GetBytes(key);
+        var payloadBytes = Encoding.UTF8.GetBytes(payload);
+
+        using var hmac = new HMACSHA256(keyBytes);
+        var hash = hmac.ComputeHash(payloadBytes);
+        var builder = new StringBuilder(hash.Length * 2);
+        foreach (var b in hash)
+        {
+            builder.Append(b.ToString("x2"));
+        }
+        return builder.ToString();
     }
 }

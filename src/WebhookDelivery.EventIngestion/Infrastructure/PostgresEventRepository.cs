@@ -28,6 +28,8 @@ public sealed class PostgresEventRepository : IEventRepository
         const string sql = @"
             INSERT INTO events (external_event_id, event_type, payload, created_at)
             VALUES (@ExternalEventId, @EventType, @Payload::jsonb, @CreatedAt)
+            ON CONFLICT (external_event_id)
+            DO UPDATE SET external_event_id = EXCLUDED.external_event_id
             RETURNING id, created_at;
         ";
 

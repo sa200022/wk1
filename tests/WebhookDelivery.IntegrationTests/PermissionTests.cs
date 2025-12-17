@@ -145,7 +145,7 @@ public class PermissionTests : TestBase
         _ = updateSql; // 說明用途，實際不執行
 
         // This would throw exception with proper role separation:
-        // MySqlException: UPDATE command denied to user 'router_worker'
+        // PostgresException: 42501: permission denied
         // In test environment with root user, this would succeed but shouldn't in production
 
         // Document the expected behavior
@@ -208,7 +208,7 @@ public class PermissionTests : TestBase
         _ = updateSagaSql; // 說明用途，實際不執行
 
         // This would throw in production:
-        // MySqlException: UPDATE command denied to user 'job_worker'@'%' for table 'webhook_delivery_sagas'
+        // PostgresException: 42501: permission denied
 
         // Document the critical requirement: Worker must NEVER modify saga
         var saga = await conn.QuerySingleAsync<dynamic>(
@@ -257,7 +257,7 @@ public class PermissionTests : TestBase
         _ = updateSql; // 說明用途，實際不執行
 
         // In production with event_ingest_writer role, this throws:
-        // MySqlException: UPDATE command denied
+        // PostgresException: 42501: permission denied
 
         // Verify event remains unchanged
         var @event = await conn.QuerySingleAsync<dynamic>(
@@ -315,7 +315,7 @@ public class PermissionTests : TestBase
         _ = updateSql; // 說明用途，實際不執行
 
         // This would throw in production:
-        // MySqlException: UPDATE command denied to user 'dead_letter_operator'
+        // PostgresException: 42501: permission denied
 
         // Verify old saga remains unchanged
         var oldSaga = await conn.QuerySingleAsync<dynamic>(

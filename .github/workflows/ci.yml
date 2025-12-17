@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Restore
+        run: dotnet restore WebhookDelivery.sln
+      - name: Build
+        run: dotnet build WebhookDelivery.sln --configuration Release --no-restore
+      - name: Test
+        run: dotnet test WebhookDelivery.sln --configuration Release --no-build
+      - name: Install dotnet-format
+        run: dotnet tool install -g dotnet-format
+      - name: Format check
+        run: dotnet format WebhookDelivery.sln --verify-no-changes
+      - name: Vulnerability scan (NuGet)
+        run: dotnet list WebhookDelivery.sln package --vulnerable --include-transitive
