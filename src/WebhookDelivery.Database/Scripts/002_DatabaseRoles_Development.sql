@@ -29,10 +29,13 @@ BEGIN
     END IF;
 END$$;
 
--- Connect + schema usage for all roles
-GRANT CONNECT ON DATABASE webhook_delivery TO
-    event_ingest_writer, router_worker, saga_orchestrator,
-    job_worker, dead_letter_operator, subscription_admin;
+-- Connect + schema usage for all roles (current database)
+DO $$
+BEGIN
+    EXECUTE format(
+        'GRANT CONNECT ON DATABASE %I TO event_ingest_writer, router_worker, saga_orchestrator, job_worker, dead_letter_operator, subscription_admin;',
+        current_database());
+END$$;
 GRANT USAGE ON SCHEMA public TO
     event_ingest_writer, router_worker, saga_orchestrator,
     job_worker, dead_letter_operator, subscription_admin;

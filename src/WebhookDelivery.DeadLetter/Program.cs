@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Npgsql;
 using WebhookDelivery.Core.Repositories;
 using WebhookDelivery.DeadLetter.Infrastructure;
 using WebhookDelivery.DeadLetter.Services;
@@ -20,18 +19,13 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Register PostgreSQL connection factory
-builder.Services.AddScoped(_ =>
-{
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? throw new InvalidOperationException("Database connection string is not configured");
-    return new NpgsqlConnection(connectionString);
-});
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Database connection string is not configured");
 
 // Register repositories
-builder.Services.AddScoped<IDeadLetterRepository, PostgresDeadLetterRepository>();
-builder.Services.AddScoped<ISagaRepository, PostgresSagaRepository>();
-builder.Services.AddScoped<IEventRepository, PostgresEventRepository>();
+builder.Services.AddScoped<IDeadLetterRepository>(_ => new PostgresDeadLetterRepository(connectionString));
+builder.Services.AddScoped<ISagaRepository>(_ => new PostgresSagaRepository(connectionString));
+builder.Services.AddScoped<IEventRepository>(_ => new PostgresEventRepository(connectionString));
 
 // Register services
 builder.Services.AddScoped<DeadLetterService>();

@@ -25,7 +25,34 @@ function Require-Command {
     }
 }
 
-Require-Command "psql"
+function Resolve-PsqlPath {
+    $cmd = Get-Command "psql.exe" -ErrorAction SilentlyContinue
+    if (-not $cmd) { $cmd = Get-Command "psql" -ErrorAction SilentlyContinue }
+    if ($cmd -and $cmd.CommandType -eq "Application" -and $cmd.Source -and (Test-Path $cmd.Source)) {
+        return $cmd.Source
+    }
+
+    $roots = @(
+        (Join-Path $env:ProgramFiles "PostgreSQL"),
+        (Join-Path ${env:ProgramFiles(x86)} "PostgreSQL")
+    ) | Where-Object { $_ -and (Test-Path $_) }
+
+    $candidates = @()
+    foreach ($root in $roots) {
+        $candidates += Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object { Join-Path $_.FullName "bin\\psql.exe" }
+    }
+
+    $candidates = $candidates | Where-Object { Test-Path $_ }
+    if ($candidates.Count -gt 0) {
+        $picked = ($candidates | Sort-Object -Descending | Select-Object -First 1)
+        if ($picked -and (Test-Path $picked)) { return $picked }
+    }
+
+    throw "psql not found. Install PostgreSQL client tools or add PostgreSQL\\bin to PATH."
+}
+
+$psql = Resolve-PsqlPath
 
 if (-not $DbPassword -or $DbPassword.Trim() -eq "") {
     $DbPassword = "dev_password_postgres"
@@ -34,8 +61,6 @@ if (-not $DbPassword -or $DbPassword.Trim() -eq "") {
 $subscriptionPayload = @{
     eventType   = $EventType
     callbackUrl = $CallbackUrl
-    active      = $true
-    verified    = $true
 } | ConvertTo-Json
 
 Write-Host "Creating subscription..." -ForegroundColor Cyan
@@ -44,6 +69,10 @@ if ($ApiKey -and $ApiKey.Trim() -ne "") { $subHeaders["X-Api-Key"] = $ApiKey }
 $subResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:5001/api/subscriptions" -Headers $subHeaders -ContentType "application/json" -Body $subscriptionPayload
 $subscriptionId = $subResponse.id
 Write-Host "Subscription created: id=$subscriptionId" -ForegroundColor Green
+
+Write-Host "Verifying subscription..." -ForegroundColor Cyan
+$verifyResponse = Invoke-RestMethod -Method Post -Uri "http://localhost:5001/api/subscriptions/$subscriptionId/verify" -Headers $subHeaders -ContentType "application/json"
+Write-Host "Subscription verified: verified=$($verifyResponse.verified)" -ForegroundColor Green
 
 $eventPayload = @{
     eventType       = $EventType
@@ -62,15 +91,15 @@ Write-Host "Waiting for processing (10s)..." -ForegroundColor Yellow
 Start-Sleep -Seconds 10
 
 $env:PGPASSWORD = $DbPassword
-$connArgs = "-h $DbHost -U $DbUser -d $DbName -t -A"
+$connArgs = @("-h", $DbHost, "-U", $DbUser, "-d", $DbName, "-t", "-A")
 
 Write-Host "Saga status counts:" -ForegroundColor Cyan
-psql $connArgs -c "SELECT status, COUNT(*) FROM webhook_delivery_sagas GROUP BY status;"
+& $psql @connArgs -c "SELECT status, COUNT(*) FROM webhook_delivery_sagas GROUP BY status;"
 
 Write-Host "Job status counts:" -ForegroundColor Cyan
-psql $connArgs -c "SELECT status, COUNT(*) FROM webhook_delivery_jobs GROUP BY status;"
+& $psql @connArgs -c "SELECT status, COUNT(*) FROM webhook_delivery_jobs GROUP BY status;"
 
 Write-Host "Latest saga for event $eventId:" -ForegroundColor Cyan
-psql $connArgs -c "SELECT id, status, attempt_count, final_error_code FROM webhook_delivery_sagas WHERE event_id = $eventId ORDER BY id DESC LIMIT 1;"
+& $psql @connArgs -c "SELECT id, status, attempt_count, final_error_code FROM webhook_delivery_sagas WHERE event_id = $eventId ORDER BY id DESC LIMIT 1;"
 
 Remove-Item Env:\PGPASSWORD

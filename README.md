@@ -34,6 +34,8 @@ docker-compose up -d   # 已暴露 5001/5002/5003
 ```
 腳本會建立訂閱、送事件、等待 10 秒並印出 saga/job 狀態。
 
+如要驗證 DB 權限分離（DEV roles/grants），可跑：`.\verify-db-permissions.ps1`（需要 `psql` 在 PATH 或已安裝 PostgreSQL client tools）。
+
 ## 服務端點
 - Subscription API: `http://localhost:5001/swagger`
 - Event Ingestion: `http://localhost:5002/api/events` (POST)

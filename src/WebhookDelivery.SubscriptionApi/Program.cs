@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Npgsql;
 using WebhookDelivery.Core.Repositories;
 using WebhookDelivery.SubscriptionApi.Controllers;
 using WebhookDelivery.SubscriptionApi.Infrastructure;
@@ -21,16 +20,11 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Register PostgreSQL connection factory
-builder.Services.AddScoped(_ =>
-{
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? throw new InvalidOperationException("Database connection string is not configured");
-    return new NpgsqlConnection(connectionString);
-});
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Database connection string is not configured");
 
 // Register repositories
-builder.Services.AddScoped<ISubscriptionRepository, PostgresSubscriptionRepository>();
+builder.Services.AddScoped<ISubscriptionRepository>(_ => new PostgresSubscriptionRepository(connectionString));
 
 // Register services
 builder.Services.AddScoped<SubscriptionService>();

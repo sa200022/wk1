@@ -22,6 +22,33 @@ function Require-Command {
     }
 }
 
+function Resolve-PsqlPath {
+    $cmd = Get-Command "psql.exe" -ErrorAction SilentlyContinue
+    if (-not $cmd) { $cmd = Get-Command "psql" -ErrorAction SilentlyContinue }
+    if ($cmd -and $cmd.CommandType -eq "Application" -and $cmd.Source -and (Test-Path $cmd.Source)) {
+        return $cmd.Source
+    }
+
+    $roots = @(
+        (Join-Path $env:ProgramFiles "PostgreSQL"),
+        (Join-Path ${env:ProgramFiles(x86)} "PostgreSQL")
+    ) | Where-Object { $_ -and (Test-Path $_) }
+
+    $candidates = @()
+    foreach ($root in $roots) {
+        $candidates += Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object { Join-Path $_.FullName "bin\\psql.exe" }
+    }
+
+    $candidates = $candidates | Where-Object { Test-Path $_ }
+    if ($candidates.Count -gt 0) {
+        $picked = ($candidates | Sort-Object -Descending | Select-Object -First 1)
+        if ($picked -and (Test-Path $picked)) { return $picked }
+    }
+
+    throw "psql not found. Install PostgreSQL client tools or add PostgreSQL\\bin to PATH."
+}
+
 function Ensure-DbPassword {
     param([string]$Value)
     if ($Value -and $Value.Trim() -ne "") { return $Value }
@@ -37,7 +64,7 @@ function Psql {
     )
     $env:PGPASSWORD = $DbPassword
     try {
-        & psql -h $DbHost -p $DbPort -U $DbUser -d $Database -t -A -c $Sql
+        & $psql -h $DbHost -p $DbPort -U $DbUser -d $Database -t -A -c $Sql
     }
     finally {
         Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
@@ -51,7 +78,7 @@ function Psql-File {
     )
     $env:PGPASSWORD = $DbPassword
     try {
-        & psql -h $DbHost -p $DbPort -U $DbUser -d $Database -f $Path
+        & $psql -h $DbHost -p $DbPort -U $DbUser -d $Database -f $Path
     }
     finally {
         Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
@@ -61,7 +88,6 @@ function Psql-File {
 $ErrorActionPreference = "Stop"
 
 Require-Command "dotnet"
-Require-Command "psql"
 
 $DbPassword = Ensure-DbPassword $DbPassword
 
@@ -70,6 +96,9 @@ Write-Host "DB: Host=$DbHost Port=$DbPort Db=$DbName User=$DbUser UseDevRoles=$U
 Write-Host ""
 
 if (-not $SkipDbSetup) {
+    $psql = Resolve-PsqlPath
+    if (-not $psql -or -not (Test-Path $psql)) { throw "psql path resolution failed." }
+
     Write-Host "Checking database..." -ForegroundColor Yellow
 
     $dbExists = Psql -Database "postgres" -Sql "SELECT 1 FROM pg_database WHERE datname = '$DbName';"
@@ -92,20 +121,20 @@ if (-not $SkipDbSetup) {
 
 function Build-ConnString {
     param(
-        [string]$Host,
+        [string]$HostName,
         [int]$Port,
         [string]$Database,
         [string]$Username,
         [string]$Password
     )
-    return "Host=$Host;Port=$Port;Database=$Database;Username=$Username;Password=$Password;"
+    return "Host=$HostName;Port=$Port;Database=$Database;Username=$Username;Password=$Password;"
 }
 
 function Service-ConnString {
     param([string]$ServiceName)
 
     if (-not $UseDevRoles) {
-        return Build-ConnString -Host $DbHost -Port $DbPort -Database $DbName -Username $DbUser -Password $DbPassword
+        return Build-ConnString -HostName $DbHost -Port $DbPort -Database $DbName -Username $DbUser -Password $DbPassword
     }
 
     $passwordMap = @{
@@ -138,7 +167,7 @@ function Service-ConnString {
     $password = $passwordMap[$ServiceName]
     if (-not $password -or $password.Trim() -eq "") { $password = $fallbackPasswordMap[$ServiceName] }
     $username = $userMap[$ServiceName]
-    return Build-ConnString -Host $DbHost -Port $DbPort -Database $DbName -Username $username -Password $password
+    return Build-ConnString -HostName $DbHost -Port $DbPort -Database $DbName -Username $username -Password $password
 }
 
 $services = @(
