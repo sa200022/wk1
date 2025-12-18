@@ -29,7 +29,7 @@ public sealed class PostgresSagaRepository : ISagaRepository
                 INSERT INTO webhook_delivery_sagas
                     (event_id, subscription_id, status, attempt_count, next_attempt_at, created_at, updated_at)
                 VALUES
-                    (@EventId, @SubscriptionId, @Status, @AttemptCount, @NextAttemptAt, NOW(), NOW())
+                    (@EventId, @SubscriptionId, @Status::saga_status_enum, @AttemptCount, @NextAttemptAt, NOW(), NOW())
                 ON CONFLICT (event_id, subscription_id) WHERE status <> 'DeadLettered'
                 DO UPDATE SET event_id = EXCLUDED.event_id
                 RETURNING id
@@ -64,8 +64,16 @@ public sealed class PostgresSagaRepository : ISagaRepository
     public async Task<WebhookDeliverySaga?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
     {
         const string sql = @"
-            SELECT id, event_id, subscription_id, status, attempt_count,
-                   next_attempt_at, final_error_code, created_at, updated_at
+            SELECT
+                id AS Id,
+                event_id AS EventId,
+                subscription_id AS SubscriptionId,
+                status AS Status,
+                attempt_count AS AttemptCount,
+                next_attempt_at AS NextAttemptAt,
+                final_error_code AS FinalErrorCode,
+                created_at AS CreatedAt,
+                updated_at AS UpdatedAt
             FROM webhook_delivery_sagas
             WHERE id = @Id
         ";
@@ -83,8 +91,16 @@ public sealed class PostgresSagaRepository : ISagaRepository
         CancellationToken cancellationToken = default)
     {
         const string sql = @"
-            SELECT id, event_id, subscription_id, status, attempt_count,
-                   next_attempt_at, final_error_code, created_at, updated_at
+            SELECT
+                id AS Id,
+                event_id AS EventId,
+                subscription_id AS SubscriptionId,
+                status AS Status,
+                attempt_count AS AttemptCount,
+                next_attempt_at AS NextAttemptAt,
+                final_error_code AS FinalErrorCode,
+                created_at AS CreatedAt,
+                updated_at AS UpdatedAt
             FROM webhook_delivery_sagas
             WHERE status = 'Pending'
             ORDER BY created_at ASC
@@ -106,8 +122,16 @@ public sealed class PostgresSagaRepository : ISagaRepository
         CancellationToken cancellationToken = default)
     {
         const string sql = @"
-            SELECT id, event_id, subscription_id, status, attempt_count,
-                   next_attempt_at, final_error_code, created_at, updated_at
+            SELECT
+                id AS Id,
+                event_id AS EventId,
+                subscription_id AS SubscriptionId,
+                status AS Status,
+                attempt_count AS AttemptCount,
+                next_attempt_at AS NextAttemptAt,
+                final_error_code AS FinalErrorCode,
+                created_at AS CreatedAt,
+                updated_at AS UpdatedAt
             FROM webhook_delivery_sagas
             WHERE status = 'PendingRetry'
               AND next_attempt_at <= NOW()
@@ -137,7 +161,7 @@ public sealed class PostgresSagaRepository : ISagaRepository
     {
         const string sql = @"
             UPDATE webhook_delivery_sagas
-            SET status = @Status,
+            SET status = @Status::saga_status_enum,
                 attempt_count = @AttemptCount,
                 next_attempt_at = @NextAttemptAt,
                 final_error_code = @FinalErrorCode,

@@ -40,7 +40,14 @@ public sealed class PostgresSubscriptionRepository : ISubscriptionRepository
     public async Task<Subscription?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
     {
         const string sql = @"
-            SELECT id, event_type, callback_url, active, verified, created_at, updated_at
+            SELECT
+                id AS Id,
+                event_type AS EventType,
+                callback_url AS CallbackUrl,
+                active AS Active,
+                verified AS Verified,
+                created_at AS CreatedAt,
+                updated_at AS UpdatedAt
             FROM subscriptions
             WHERE id = @Id
         ";
@@ -56,7 +63,14 @@ public sealed class PostgresSubscriptionRepository : ISubscriptionRepository
     public async Task<IReadOnlyList<Subscription>> GetByEventTypeAsync(string eventType, CancellationToken cancellationToken = default)
     {
         const string sql = @"
-            SELECT id, event_type, callback_url, active, verified, created_at, updated_at
+            SELECT
+                id AS Id,
+                event_type AS EventType,
+                callback_url AS CallbackUrl,
+                active AS Active,
+                verified AS Verified,
+                created_at AS CreatedAt,
+                updated_at AS UpdatedAt
             FROM subscriptions
             WHERE event_type = @EventType
         ";
@@ -96,7 +110,14 @@ public sealed class PostgresSubscriptionRepository : ISubscriptionRepository
     public async Task<IReadOnlyList<Subscription>> GetAllAsync(int limit, int offset, CancellationToken cancellationToken = default)
     {
         const string sql = @"
-            SELECT id, event_type, callback_url, active, verified, created_at, updated_at
+            SELECT
+                id AS Id,
+                event_type AS EventType,
+                callback_url AS CallbackUrl,
+                active AS Active,
+                verified AS Verified,
+                created_at AS CreatedAt,
+                updated_at AS UpdatedAt
             FROM subscriptions
             ORDER BY id ASC
             LIMIT @Limit OFFSET @Offset
@@ -115,7 +136,14 @@ public sealed class PostgresSubscriptionRepository : ISubscriptionRepository
     public async Task<IReadOnlyList<Subscription>> GetActiveAndVerifiedAsync(string eventType, CancellationToken cancellationToken = default)
     {
         const string sql = @"
-            SELECT id, event_type, callback_url, active, verified, created_at, updated_at
+            SELECT
+                id AS Id,
+                event_type AS EventType,
+                callback_url AS CallbackUrl,
+                active AS Active,
+                verified AS Verified,
+                created_at AS CreatedAt,
+                updated_at AS UpdatedAt
             FROM subscriptions
             WHERE event_type = @EventType
               AND active = TRUE

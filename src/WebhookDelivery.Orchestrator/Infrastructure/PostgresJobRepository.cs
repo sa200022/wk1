@@ -100,7 +100,7 @@ public sealed class PostgresJobRepository : IJobRepository
             INSERT INTO webhook_delivery_jobs
                 (saga_id, status, attempt_at, lease_until)
             VALUES
-                (@SagaId, @Status, @AttemptAt, @LeaseUntil)
+                (@SagaId, @Status::job_status_enum, @AttemptAt, @LeaseUntil)
             ON CONFLICT (saga_id, attempt_at)
             DO UPDATE SET saga_id = EXCLUDED.saga_id
             RETURNING id;

@@ -54,6 +54,7 @@ public sealed class RoutingWorkerService : BackgroundService
         if (_lastProcessedEventId == 0)
         {
             _lastProcessedEventId = await _eventRepository.GetMaxEventIdAsync(stoppingToken);
+            await _stateRepository.SaveLastProcessedEventIdAsync(_lastProcessedEventId, stoppingToken);
         }
 
         _logger.LogInformation("Router initialized at last event ID {LastEventId}", _lastProcessedEventId);
@@ -62,6 +63,18 @@ public sealed class RoutingWorkerService : BackgroundService
         {
             try
             {
+                // Allow local/dev users to reset router offset without restarting the process.
+                // If the persisted offset moves backwards, re-sync our in-memory cursor.
+                var persisted = await _stateRepository.GetLastProcessedEventIdAsync(stoppingToken);
+                if (persisted < _lastProcessedEventId)
+                {
+                    _logger.LogWarning(
+                        "Router offset moved backwards from {Current} to {Persisted}; re-syncing",
+                        _lastProcessedEventId,
+                        persisted);
+                    _lastProcessedEventId = persisted;
+                }
+
                 await ProcessNewEventsAsync(stoppingToken);
             }
             catch (Exception ex)
@@ -102,9 +115,11 @@ public sealed class RoutingWorkerService : BackgroundService
                     @event.Id,
                     @event.EventType);
                 _lastProcessedEventId = @event.Id;
+                await _stateRepository.SaveLastProcessedEventIdAsync(_lastProcessedEventId, cancellationToken);
                 continue;
             }
 
+            var anyFailed = false;
             foreach (var subscription in subscriptions)
             {
                 try
@@ -119,12 +134,21 @@ public sealed class RoutingWorkerService : BackgroundService
                 }
                 catch (Exception ex)
                 {
+                    anyFailed = true;
                     _logger.LogError(
                         ex,
                         "Failed to create saga for event {EventId} -> subscription {SubscriptionId}",
                         @event.Id,
                         subscription.Id);
                 }
+            }
+
+            if (anyFailed)
+            {
+                _logger.LogWarning(
+                    "One or more sagas failed to create for event {EventId}; will retry and will not advance offset",
+                    @event.Id);
+                break;
             }
 
             _lastProcessedEventId = @event.Id;

@@ -2,8 +2,8 @@
 # This script creates a temporary database, applies schema + DEV roles, and checks expected permissions.
 #
 # Usage:
-#   $env:POSTGRES_PASSWORD="5512355123k"; .\verify-db-permissions.ps1
-#   .\verify-db-permissions.ps1 -AdminPassword "5512355123k"
+#   $env:POSTGRES_PASSWORD="你的密碼"; .\verify-db-permissions.ps1
+#   .\verify-db-permissions.ps1 -AdminPassword "你的密碼"
 
 param(
     [string]$DbHost = "localhost",

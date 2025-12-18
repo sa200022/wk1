@@ -27,6 +27,10 @@ packages/
 TestResults/
 *.trx
 
+# Local dev secrets / env
+.envrc
+.direnv/
+
 # User-specific files
 *.rsuser
 *.suo
@@ -52,8 +56,20 @@ bld/
 
 # Sensitive environment files
 .env
-*.env.local
+.env.*
+!.env.example
 *.env.production
+secrets.local.ps1
+local.secrets.ps1
+*.local.json
+appsettings.*.local.json
+appsettings.local.json
+*.pfx
+*.pem
+*.key
+*.publishsettings
+*.pubxml
+**/Properties/PublishProfiles/
 
 # Database backups
 *.sql.backup

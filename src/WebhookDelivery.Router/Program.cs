@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Npgsql;
 using WebhookDelivery.Core.Repositories;
 using WebhookDelivery.Router.Infrastructure;
 using WebhookDelivery.Router.Services;
@@ -14,24 +13,14 @@ builder.Logging.AddConsole();
 builder.Logging.AddJsonConsole();
 builder.Logging.AddDebug();
 
-// Register PostgreSQL connection factory
-builder.Services.AddScoped(_ =>
-{
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? throw new InvalidOperationException("Database connection string is not configured");
-    return new NpgsqlConnection(connectionString);
-});
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Database connection string is not configured");
 
 // Register repositories
-builder.Services.AddScoped<IEventRepository, PostgresEventRepository>();
-builder.Services.AddScoped<ISubscriptionRepository, PostgresSubscriptionRepository>();
-builder.Services.AddScoped<ISagaRepository, PostgresSagaRepository>();
-builder.Services.AddScoped(provider =>
-{
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? throw new InvalidOperationException("Database connection string is not configured");
-    return new RouterStateRepository(connectionString);
-});
+builder.Services.AddSingleton<IEventRepository>(_ => new PostgresEventRepository(connectionString));
+builder.Services.AddSingleton<ISubscriptionRepository>(_ => new PostgresSubscriptionRepository(connectionString));
+builder.Services.AddSingleton<ISagaRepository>(_ => new PostgresSagaRepository(connectionString));
+builder.Services.AddSingleton(_ => new RouterStateRepository(connectionString));
 builder.Services.AddHostedService(provider =>
 {
     var logger = provider.GetRequiredService<ILogger<HealthServer>>();

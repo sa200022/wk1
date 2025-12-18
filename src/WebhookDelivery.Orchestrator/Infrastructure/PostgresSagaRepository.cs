@@ -178,7 +178,7 @@ public sealed class PostgresSagaRepository : ISagaRepository
     {
         const string sql = @"
             UPDATE webhook_delivery_sagas
-            SET status = @Status,
+            SET status = @Status::saga_status_enum,
                 attempt_count = @AttemptCount,
                 next_attempt_at = @NextAttemptAt,
                 final_error_code = @FinalErrorCode,

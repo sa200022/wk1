@@ -15,6 +15,26 @@ param(
     [string]$ApiKey = $env:API_KEY
 )
 
+function Import-LocalSecrets {
+    $secretsScript = Join-Path $PSScriptRoot "secrets.local.ps1"
+    if (Test-Path $secretsScript) {
+        . $secretsScript
+    }
+
+    $dotenv = Join-Path $PSScriptRoot ".env.local"
+    if (Test-Path $dotenv) {
+        Get-Content $dotenv | ForEach-Object {
+            $line = $_.Trim()
+            if (-not $line -or $line.StartsWith("#")) { return }
+            $parts = $line.Split("=", 2)
+            if ($parts.Count -ne 2) { return }
+            $key = $parts[0].Trim()
+            $value = $parts[1].Trim().Trim("'").Trim('"')
+            if ($key) { [Environment]::SetEnvironmentVariable($key, $value, "Process") }
+        }
+    }
+}
+
 function Require-Command {
     param([string]$Name)
     if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
@@ -86,6 +106,8 @@ function Psql-File {
 }
 
 $ErrorActionPreference = "Stop"
+
+Import-LocalSecrets
 
 Require-Command "dotnet"
 
@@ -191,6 +213,7 @@ foreach ($service in $services) {
         "& {" +
         "`$host.ui.RawUI.WindowTitle = '$title';" +
         "cd '$($service.Path)';" +
+        "`$env:DOTNET_ENVIRONMENT = 'Development';" +
         "`$env:ASPNETCORE_ENVIRONMENT = 'Development';" +
         "if ('$($service.Url)' -ne '') { `$env:ASPNETCORE_URLS = '$($service.Url)'; }" +
         "`$env:ConnectionStrings__DefaultConnection = '$conn';" +

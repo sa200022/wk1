@@ -20,10 +20,21 @@ public sealed class HealthServer : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _listener.Prefixes.Add($"http://localhost:{_port}/health/");
-        _listener.Start();
-        stoppingToken.Register(() => _listener.Stop());
-        _logger.LogInformation("Worker health server listening on port {Port}", _port);
+        try
+        {
+            _listener.Prefixes.Add($"http://localhost:{_port}/health/");
+            _listener.Start();
+            stoppingToken.Register(() => _listener.Stop());
+            _logger.LogInformation("Worker health server listening on port {Port}", _port);
+        }
+        catch (Exception ex) when (ex is HttpListenerException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            _logger.LogWarning(
+                ex,
+                "Worker health server disabled (failed to bind to http://localhost:{Port}/health/).",
+                _port);
+            return;
+        }
 
         while (!stoppingToken.IsCancellationRequested)
         {

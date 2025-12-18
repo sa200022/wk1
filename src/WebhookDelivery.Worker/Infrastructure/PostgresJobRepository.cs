@@ -27,7 +27,7 @@ public sealed class PostgresJobRepository : IJobRepository
             INSERT INTO webhook_delivery_jobs
                 (saga_id, status, attempt_at, lease_until)
             VALUES
-                (@SagaId, @Status, @AttemptAt, @LeaseUntil)
+                (@SagaId, @Status::job_status_enum, @AttemptAt, @LeaseUntil)
             RETURNING id;
         ";
 
@@ -54,8 +54,14 @@ public sealed class PostgresJobRepository : IJobRepository
     public async Task<WebhookDeliveryJob?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
     {
         const string sql = @"
-            SELECT id, saga_id, status, lease_until, attempt_at,
-                   response_status, error_code
+            SELECT
+                id AS Id,
+                saga_id AS SagaId,
+                status AS Status,
+                lease_until AS LeaseUntil,
+                attempt_at AS AttemptAt,
+                response_status AS ResponseStatus,
+                error_code AS ErrorCode
             FROM webhook_delivery_jobs
             WHERE id = @Id
         ";
@@ -73,8 +79,14 @@ public sealed class PostgresJobRepository : IJobRepository
         CancellationToken cancellationToken = default)
     {
         const string sql = @"
-            SELECT id, saga_id, status, lease_until, attempt_at,
-                   response_status, error_code
+            SELECT
+                id AS Id,
+                saga_id AS SagaId,
+                status AS Status,
+                lease_until AS LeaseUntil,
+                attempt_at AS AttemptAt,
+                response_status AS ResponseStatus,
+                error_code AS ErrorCode
             FROM webhook_delivery_jobs
             WHERE saga_id = @SagaId
               AND status IN ('Pending', 'Leased')
@@ -95,8 +107,14 @@ public sealed class PostgresJobRepository : IJobRepository
         CancellationToken cancellationToken = default)
     {
         const string sql = @"
-            SELECT id, saga_id, status, lease_until, attempt_at,
-                   response_status, error_code
+            SELECT
+                id AS Id,
+                saga_id AS SagaId,
+                status AS Status,
+                lease_until AS LeaseUntil,
+                attempt_at AS AttemptAt,
+                response_status AS ResponseStatus,
+                error_code AS ErrorCode
             FROM webhook_delivery_jobs
             WHERE saga_id = @SagaId
               AND status IN ('Completed', 'Failed')
@@ -117,7 +135,7 @@ public sealed class PostgresJobRepository : IJobRepository
     {
         const string sql = @"
             UPDATE webhook_delivery_jobs
-            SET status = @Status,
+            SET status = @Status::job_status_enum,
                 lease_until = @LeaseUntil,
                 response_status = @ResponseStatus,
                 error_code = @ErrorCode
@@ -148,8 +166,14 @@ public sealed class PostgresJobRepository : IJobRepository
         CancellationToken cancellationToken = default)
     {
         const string sql = @"
-            SELECT id, saga_id, status, lease_until, attempt_at,
-                   response_status, error_code
+            SELECT
+                id AS Id,
+                saga_id AS SagaId,
+                status AS Status,
+                lease_until AS LeaseUntil,
+                attempt_at AS AttemptAt,
+                response_status AS ResponseStatus,
+                error_code AS ErrorCode
             FROM webhook_delivery_jobs
             WHERE status = 'Pending'
             ORDER BY attempt_at ASC
