@@ -81,6 +81,9 @@ backup_*.sql
 *.swp
 *~
 
+# Local rules/notes
+rule/r0/
+
 # OS generated files
 .DS_Store
 Thumbs.db
